@@ -100,7 +100,7 @@ let basename =
                 Array.get Sys.argv 0)))
 let license = "Copyright 2021, Valyrie Autumn, All rights reserved."
 let version = String.concat " " ["unnamed language"; "version 0a"]
-let usage = String.concat " " [basename; "[-o OUTPATH]"; "[-i INCDIR]"; "FILE..."]
+let usage = String.concat " " [basename; "[-o OUTPATH...]"; "[-i INCDIR...]"; "[--]"; "FILE..."]
 let opts = [
     {keys = Keys ["-h"; "-?"; "--help"; "--?"]; fn = Apply_Unit (fun () -> set_bool print_help); help = "print this help and exit."};
     {keys = Keys ["-V"; "--version"]; fn = Apply_Unit (fun () -> set_bool print_version); help = "display version and exit."};
@@ -116,6 +116,7 @@ let help = String.concat "\n" [
     print_opts opts;
     "";
     version;
-    license]
+    license
+]
 
 let () = print_endline help(*(String.concat " " (parse_opts (List.tl (Array.to_list Sys.argv)) opts))*)
