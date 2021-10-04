@@ -5,7 +5,7 @@
 type opt_fn =
     Apply_Unit of (unit -> unit)
     | Apply_String of (string -> unit)
-    | None
+    | Rest
 type opt = {keys: string list; fn: opt_fn; help: string}
 
 let opt_pad (padding: int): string =
@@ -51,7 +51,7 @@ let rec parse_opts (argv: string list) (opts: opt list): (string list) =
         | switch :: tail -> match (match_opt switch opts) with
             None -> argv
             | Some opt -> match opt.fn with
-                None -> tail
+                Rest -> tail
                 | Apply_Unit f -> f (); parse_opts tail opts
                 | Apply_String f -> match tail with
                     [] -> argv
@@ -89,7 +89,7 @@ let opts = [
     {keys = ["-v"; "--verbose"]; fn = Apply_Unit (fun () -> inc_int verbosity); help = "increase verbosity; may be specified multiple times."};
     {keys = ["-o"; "--output"]; fn = Apply_String (append_to_list output_paths); help = "specify an output path; may be specified multiple times."};
     {keys = ["-I"; "--include"]; fn = Apply_String (append_to_list include_paths) ; help = "specify a directory to include; may be specified multiple times."};
-    {keys = ["--"]; fn = None; help = "explicitly terminate options."}
+    {keys = ["--"]; fn = Rest; help = "explicitly terminate options."}
 ]
 let help = String.concat "\n" [
     usage;
