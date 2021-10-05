@@ -63,15 +63,21 @@ let inc_int (i: int ref) =
 let append_to_list (l: 'a list ref) (x: 'a) =
     l := x :: !l
 
-(* fs utils *)
+(* fs paths *)
 
-let dir_exists (path: string): bool =
-    try Sys.is_directory path with
+type path =
+    Stack of string Stack.t
+(* TODO check if path is relative *)
+(* TODO normalize path *)
+(* TODO convert strings into paths *)
+(* TODO string of path *)
+let is_dir (path: path): bool =
+    try Sys.is_directory (string_of_path path) with
         Sys_error _ -> false
-let file_exists (path: string): bool =
-    (Sys.file_exists path) && not (dir_exists path)
-let append_path (names: string list): string =
-    String.concat "/" names
+let path_exists (path: path): bool =
+    Sys.file_exists (string_of_path path)
+let is_file (path: path): bool =
+    (path_exists path) && not (is_dir path)
 
 (* TODO path substring matches *)
 
