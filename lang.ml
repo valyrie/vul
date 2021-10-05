@@ -63,11 +63,39 @@ let inc_int (i: int ref) =
 let append_to_list (l: 'a list ref) (x: 'a) =
     l := x :: !l
 
-(* read source files *)
+(* fs utils *)
 
-type source_reader =
+let dir_exists (path: string): bool =
+    try Sys.is_directory path with
+        Sys_error _ -> false
+let file_exists (path: string): bool =
+    (Sys.file_exists path) && not (dir_exists path)
+let append_path (names: string list): string =
+    String.concat "/" names
+
+(* TODO path substring matches *)
+
+(* open output files *)
+
+type output =
+    Channel of out_channel
+    | Error of string
+let open_output (path: string): output =
+    try Channel (open_out_bin path) with
+        Sys_error s -> Error s
+
+(* search include directories *)
+
+(* TODO search include directory for file *)
+
+(* open source files *)
+
+type source =
     Channel of in_channel
-    | Path of string
+    | Error of string
+let open_source (path: string): source =
+    try Channel (open_in_bin path) with
+        Sys_error s -> Error s
 
 (* commandline options *)
 
