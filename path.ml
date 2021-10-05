@@ -1,5 +1,7 @@
 (* internal representation of filesystem paths *)
 
+exception NoUp of string
+
 type path =
     Root
     | Rel
@@ -27,7 +29,35 @@ let rec path_to_string_list (p: path) (l: string list): string list =
 let to_string (p: path): string =
     String.concat "/" (path_to_string_list p [])
 
-(* TODO: go up *)
-(* TODO: normalize a path *)
+let rec up (p: path): path =
+    match p with
+        Root -> raise (NoUp "path is root")
+        | Rel -> raise (NoUp "path is at relative root")
+        | Here sub -> up sub
+        | Name (sub, _) -> sub
+        | Up sub -> sub
+
+let rec up_opt (p: path): path option =
+    try Some (up p) with
+        NoUp _ -> None
+
+let rec normalize (p: path): path =
+    match p with
+        Root -> Root
+        | Rel -> Rel
+        | Here sub -> normalize sub
+        | Name (sub, name) -> Name (normalize sub, name)
+        | Up sub -> normalize (up sub)
+
+let rec normalize_partial (p: path): path =
+    match p with
+        Root -> Root
+        | Rel -> Rel
+        | Here sub -> normalize_partial sub
+        | Name (sub, name) -> Name (normalize_partial sub, name)
+        | Up sub -> match up_opt sub with
+            Some upped -> normalize_partial upped
+            | None -> p
+
 (* TODO: of_string *)
-(* TODO: apply / cd*)
+(* TODO: apply / cd *)
