@@ -1,31 +1,12 @@
-(* language, main module *)
-
-(* fs paths *)
-
-(*
-
-type path =
-    Stack of string Stack.t
-(* TODO check if path is relative *)
-(* TODO normalize path *)
-(* TODO convert strings into paths *)
-(* TODO string of path *)
-let is_dir (path: path): bool =
-    try Sys.is_directory (string_of_path path) with
-        Sys_error _ -> false
-let path_exists (path: path): bool =
-    Sys.file_exists (string_of_path path)
-let is_file (path: path): bool =
-    (path_exists path) && not (is_dir path)
-(* TODO path substring matches *)
+(* unnamed language, main module *)
 
 (* open output files *)
 
 type output =
     Channel of out_channel
     | Error of string
-let open_output (path: string): output =
-    try Channel (open_out_bin path) with
+let open_output (path: Path.path): output =
+    try Channel (open_out_bin (Path.to_string path)) with
         Sys_error s -> Error s
 
 (* search include directories *)
@@ -37,11 +18,9 @@ let open_output (path: string): output =
 type source =
     Channel of in_channel
     | Error of string
-let open_source (path: string): source =
-    try Channel (open_in_bin path) with
+let open_source (path: Path.path): source =
+    try Channel (open_in_bin (Path.to_string path)) with
         Sys_error s -> Error s
-
-*)
 
 (* commandline options *)
 
