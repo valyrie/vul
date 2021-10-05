@@ -1,3 +1,3 @@
 (executable
  (name lang)
- (modules lang opts diag path))
+ (modules lang opts path))
