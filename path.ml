@@ -32,7 +32,7 @@ let rec up (p: path): path =
         | Here sub -> up sub
         | Name (sub, _) -> sub
         | Up sub -> sub
-let rec up_opt (p: path): path option =
+let up_opt (p: path): path option =
     try Some (up p) with
         NoUp _ -> None
 let rec normalize (p: path): path =
