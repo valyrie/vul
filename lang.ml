@@ -1,6 +1,7 @@
 (* unnamed language, main module *)
 
 (* fs helpers *)
+
 let is_dir (path: Path.path): bool =
     try Sys.is_directory (Path.to_string path) with
         Sys_error _ -> false
@@ -60,7 +61,7 @@ let basename =
                 Array.get Sys.argv 0)))
 let license = "Copyright 2021, Valyrie Autumn, All rights reserved."
 let version = String.concat " " ["unnamed language"; "version 0a"]
-let usage = String.concat " " [basename; "[-o OUTPATH...]"; "[-i INCDIR...]"; "[--]"; "FILE..."]
+let usage = String.concat " " [basename; "[-o OUTPATH...]"; "[-I INCDIR...]"; "[--]"; "FILE..."]
 let opts: Opts.opt list = [
     {keys = ["-h"; "-?"; "--help"; "--?"]; fn = Apply_Unit (fun () -> set_bool print_help); help = "print this help and exit."};
     {keys = ["-V"; "--version"]; fn = Apply_Unit (fun () -> set_bool print_version); help = "display version and exit."};
