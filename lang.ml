@@ -1,5 +1,14 @@
 (* unnamed language, main module *)
 
+(* fs helpers *)
+let is_dir (path: Path.path): bool =
+    try Sys.is_directory (Path.to_string path) with
+        Sys_error _ -> false
+let path_exists (path: Path.path): bool =
+    Sys.file_exists (Path.to_string path)
+let is_file (path: Path.path): bool =
+    (path_exists path) && not (is_dir path)
+
 (* open output files *)
 
 type output =
@@ -11,7 +20,11 @@ let open_output (path: Path.path): output =
 
 (* search include directories *)
 
-(* TODO search include directory for file *)
+let search_include (dir: Path.path) (path: Path.path): Path.path option =
+    if not (path_exists (Path.append dir path)) then
+        None
+    else
+        Some (Path.append dir path)
 
 (* open source files *)
 
