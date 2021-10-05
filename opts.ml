@@ -5,6 +5,8 @@ type opt_fn =
     | Apply_String of (string -> unit)
     | Rest
 type opt = {keys: string list; fn: opt_fn; help: string}
+let is_switch (s: string): bool =
+    (String.get s 0) = '-'
 let opt_pad (padding: int): string =
     String.init padding (fun _ -> ' ')
 let rec keys_length (keys: string list): int =
@@ -40,8 +42,6 @@ let rec match_opt (arg: string) (opts: opt list): (opt option) =
             match_opt arg rem_opts
         else
             Some opt
-let is_switch (s: string): bool =
-    (String.get s 0) = '-'
 let rec parse_opts (argv: string list) (opts: opt list): (string list) =
     match argv with
         [] -> []
