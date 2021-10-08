@@ -10,15 +10,6 @@ let path_exists (path: Path.path): bool =
 let is_file (path: Path.path): bool =
     (path_exists path) && not (is_dir path)
 
-(* open output files *)
-
-type output =
-    Channel of out_channel
-    | Error of string
-let open_output (path: Path.path): output =
-    try Channel (open_out_bin (Path.to_string path)) with
-        Sys_error s -> Error s
-
 (* search include directories *)
 
 let search_include (dir: Path.path) (path: Path.path): Path.path option =
@@ -26,15 +17,6 @@ let search_include (dir: Path.path) (path: Path.path): Path.path option =
         None
     else
         Some (Path.append dir path)
-
-(* open source files *)
-
-type source =
-    Channel of in_channel
-    | Error of string
-let open_source (path: Path.path): source =
-    try Channel (open_in_bin (Path.to_string path)) with
-        Sys_error s -> Error s
 
 (* commandline options *)
 
