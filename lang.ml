@@ -92,6 +92,8 @@ let outputs = List.map open_output !output_paths
 let handle_exit () =
     if !error != 0 then
         List.iter File.Output.destroy outputs;
+    List.iter File.Output.close outputs;
+    List.iter File.Source.close sources;
     exit !error
 
 let () =
