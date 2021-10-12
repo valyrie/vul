@@ -120,4 +120,6 @@ begin
                     print_stdout (String.concat " " args)
         end
 end;
+    if !error != 0 then
+        List.iter File.Output.destroy outputs;
     exit !error
