@@ -69,6 +69,7 @@ let help = String.concat "\n" [
 
 let args = Opts.parse_opts (List.tl (Array.to_list Sys.argv)) opts
 
+(* TODO handle errors opening various input paths*)
 let open_output s =
     Path.of_string s
     |> Path.normalize_partial
@@ -87,6 +88,11 @@ let open_source s =
 let sources = List.map open_source args
 let includes = List.map make_include !include_paths
 let outputs = List.map open_output !output_paths
+
+let handle_exit () =
+    if !error != 0 then
+        List.iter File.Output.destroy outputs;
+    exit !error
 
 let () =
 begin
@@ -120,6 +126,4 @@ begin
                     print_stdout (String.concat " " args)
         end
 end;
-    if !error != 0 then
-        List.iter File.Output.destroy outputs;
-    exit !error
+    handle_exit ()
