@@ -44,6 +44,7 @@ module Output = struct
     try close_out out.channel with
       Sys_error _ -> raise (WriteError (String.concat "" [(Path.to_string out.path); ": Encountered write error while closing file"]))
   let destroy out =
+    close out;
     try Sys.remove (Path.to_string out.path) with
       Sys_error _ -> raise (WriteError (String.concat "" [(Path.to_string out.path); ": Unable to remove file"]))
 end
