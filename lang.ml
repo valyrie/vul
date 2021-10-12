@@ -70,30 +70,44 @@ let help = String.concat "\n" [
 let args = Opts.parse_opts (List.tl (Array.to_list Sys.argv)) opts
 
 (* TODO handle errors opening various input paths*)
-let open_output s =
-    Path.of_string s
+let open_output l s =
+    try (Path.of_string s
     |> Path.normalize_partial
-    |> File.Output.open_path
+    |> File.Output.open_path) :: l with
+        Path.MalformedPath _ -> print_error (String.concat "" [s; ": Malformed path"]) 1; l
+        | File.FileNotFound e -> print_error e 1; l
+        | File.WrongFileOrDir e -> print_error e 1; l
+        | File.WriteError e -> print_error e 1; l
 
-let make_include s =
-    Path.of_string s
+let make_include l s =
+    try (Path.of_string s
     |> Path.normalize_partial
-    |> File.Include.make_from_path
+    |> File.Include.make_from_path) :: l with
+        Path.MalformedPath _ -> print_error (String.concat "" [s; ": Malformed path"]) 1; l
+        | File.FileNotFound e -> print_error e 1; l
+        | File.WrongFileOrDir e -> print_error e 1; l
 
-let open_source s =
-    Path.of_string s
+let open_source l s =
+    try (Path.of_string s
     |> Path.normalize_partial
-    |> File.Source.open_path
+    |> File.Source.open_path) :: l with
+        Path.MalformedPath _ -> print_error (String.concat "" [s; ": Malformed path"]) 1; l
+        | File.FileNotFound e -> print_error e 1; l
+        | File.WrongFileOrDir e -> print_error e 1; l
+        | File.ReadError e -> print_error e 1; l
 
-let sources = List.map open_source args
-let includes = List.map make_include !include_paths
-let outputs = List.map open_output !output_paths
+let outputs = List.fold_left open_output [] !output_paths
+let includes = List.fold_left make_include [] !include_paths
+let sources = List.fold_left open_source [] args
 
 let handle_exit () =
     if !error != 0 then
-        List.iter File.Output.destroy outputs;
-    List.iter File.Output.close outputs;
-    List.iter File.Source.close sources;
+        (try List.iter File.Output.destroy outputs with
+            File.WriteError s -> print_error s 1);
+    (try List.iter File.Output.close outputs with
+        File.WriteError s -> print_error s 1);
+    (try List.iter File.Source.close sources with
+        File.ReadError s -> print_error s 1);
     exit !error
 
 let () =
