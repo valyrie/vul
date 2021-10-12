@@ -30,7 +30,6 @@ module Source :
     }
     val open_path : Path.path -> t
     val load : t -> int -> int
-    val read : 'a -> 'b -> 'c -> unit
     val tell : t -> int -> int
     val look : t -> int -> char option
     val advance : t -> int -> int

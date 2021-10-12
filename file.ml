@@ -88,8 +88,7 @@ module Source = struct
             let read_buf_len = Bytes.length read_buf in
               src.buffer <- Bytes.cat src.buffer read_buf;
               ahead_dist + read_buf_len
-  let read src pos len =
-    ()
+  (* TODO arbitrary position read *)
   let tell src ahead =
     src.offset + ahead
   let look src ahead =
