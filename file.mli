@@ -12,6 +12,7 @@ module Output :
     val open_path : Path.path -> t
     val output_bytes : t -> bytes -> unit
     val close : t -> unit
+    val destroy: t -> unit
   end
 module Include :
   sig
