@@ -47,6 +47,25 @@ let help = String.concat "\n" [
 
 let args = Opts.parse_opts (List.tl (Array.to_list Sys.argv)) opts
 
+let open_output s =
+    Path.of_string s
+    |> Path.normalize_partial
+    |> File.Output.open_path
+
+let make_include s =
+    Path.of_string s
+    |> Path.normalize_partial
+    |> File.Include.make_from_path
+
+let open_source s =
+    Path.of_string s
+    |> Path.normalize_partial
+    |> File.Source.open_path
+
+let sources = List.map open_source args
+let includes = List.map make_include !include_paths
+let outputs = List.map open_output !output_paths
+
 let () = if !print_help then
     print_endline help
 else if !print_usage || !print_version then
