@@ -67,6 +67,7 @@ let help = String.concat "\n" [
     license
 ]
 
+(* TODO wire verbosity in *)
 let args = Opts.parse_opts (List.tl (Array.to_list Sys.argv)) opts
 
 let open_output l s =
