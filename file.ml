@@ -9,6 +9,22 @@ let path_exists (path: Path.path): bool =
 let is_file (path: Path.path): bool =
     (path_exists path) && not (is_dir path)
 
+(* file i/o helpers *)
+let rec input_bytes_prepend chan len prepend =
+  if len > 0 then
+    let buf = Bytes.create len in
+      let readin = input chan buf 0 len in
+        if readin > 0 then
+          let readbuf = Bytes.sub buf 0 readin in
+            input_bytes_prepend chan (len - readin) (Bytes.cat prepend readbuf)
+        else
+          prepend
+  else
+    prepend
+
+let input_bytes chan len =
+  input_bytes_prepend chan len Bytes.empty
+
 (* file i/o types *)
 
 exception ReadError of string
@@ -22,8 +38,8 @@ module Output = struct
     (* TODO check for existence of parent directory *)
     try {path = p; channel = (open_out_bin (Path.to_string p))} with
       Sys_error _ -> raise (WriteError (String.concat "" [(Path.to_string p); ": Unable to open file for writing"]))
-  let push_bytes b out =
-    output_bytes out b
+  let output_bytes out b =
+    output_bytes out.channel b
   let close out =
     try close_out out.channel with
       Sys_error _ -> raise (WriteError (String.concat "" [(Path.to_string out.path); ": Encountered write error while closing file"]))
@@ -47,7 +63,7 @@ module Include = struct
 end
 
 module Source = struct
-  type t = {path: Path.path; channel: in_channel; pos: int}
+  type t = {path: Path.path; channel: in_channel; mutable buffer: bytes; mutable offset: int}
   let open_path p =
     if not (path_exists p) then
       raise (FileNotFound (String.concat "" [(Path.to_string p); ": No such file"]))
@@ -55,7 +71,31 @@ module Source = struct
       if not (is_file p) then
         raise (WrongFileOrDir (String.concat "" [(Path.to_string p); ": Is not a file"]))
       else
-        try {path = p; channel = open_in_bin (Path.to_string p); pos = 0} with
-          Sys_error _ -> raise (ReadError (String.concat "" [(Path.to_string p); ": Unable to open file for reading"]));
-  (* TODO src fns *)
+        let in_ch = try open_in_bin (Path.to_string p) with 
+          Sys_error _ -> raise (ReadError (String.concat "" [(Path.to_string p); ": Unable to open file for reading"]))
+        in {path = p;
+          channel = in_ch;
+          buffer = Bytes.empty;
+          offset = 0}
+  let load src len =
+    let buf_len = Bytes.length src.buffer in
+      if buf_len >= len then
+        buf_len
+      else
+        let read_buf = input_bytes src.channel (len - buf_len) in
+          let read_buf_len = Bytes.length read_buf in
+            src.buffer <- Bytes.cat src.buffer read_buf;
+            src.offset <- src.offset + read_buf_len;
+            buf_len + read_buf_len
+  let read src pos len =
+    ()
+  let tell src ahead =
+    ()
+  let look src ahead =
+    ()
+  let advance src ahead =
+    ()
+  let close src =
+    try close_in src.channel with
+      Sys_error _ -> raise (ReadError (String.concat "" [(Path.to_string src.path); ": Encountered read error while closing file"]))
 end
