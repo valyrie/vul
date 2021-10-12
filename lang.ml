@@ -111,7 +111,7 @@ let handle_exit () =
     exit !error
 
 let () =
-begin
+try begin begin
     if Array.length Sys.argv <= 1 then
         print_stdout help
     else
@@ -129,11 +129,11 @@ begin
                 end
             else
                 begin
-                    if List.length sources = 0 then
+                    if List.length args = 0 then
                         begin
                             print_error "no source file(s) specified" 1
                         end;
-                    if List.length outputs = 0; then
+                    if List.length !output_paths = 0; then
                         begin
                             print_error "no output file(s) specified" 1
                         end;
@@ -143,3 +143,5 @@ begin
         end
 end;
     handle_exit ()
+end with
+    x -> print_error (String.concat "" ["uncaught exception: "; (Printexc.to_string x)]) 1; handle_exit ()
