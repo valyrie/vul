@@ -1,5 +1,32 @@
 (* unnamed language, main module *)
 
+(* basename *)
+
+let basename = 
+    List.hd (
+        List.rev (
+            String.split_on_char '\\' (
+                Array.get Sys.argv 0)))
+
+(* print to stdout *)
+
+let print_stdout s =
+    Printf.fprintf stdout "%s\n" s;
+    flush stdout
+
+(* print errors to stderr *)
+
+let error = ref 0
+
+let print_stderr s =
+    Printf.fprintf stderr "%s\n" s;
+    flush stderr
+
+let print_error s c =
+    Printf.fprintf stderr "%s: error: %s\n" basename s;
+    flush stderr;
+    error := c
+
 (* commandline options *)
 
 let set_bool (b: bool ref) =
@@ -18,14 +45,9 @@ let (output_paths: string list ref) = ref []
 let (include_paths: string list ref) = ref []
 let (input_paths: string list ref) = ref []
 
-let basename = 
-    List.hd (
-        List.rev (
-            String.split_on_char '\\' (
-                Array.get Sys.argv 0)))
 let license = "Copyright 2021, Valyrie Autumn, All rights reserved."
 let version = String.concat " " ["unnamed language"; "version 0a"]
-let usage = String.concat " " [basename; "[-o OUTPATH...]"; "[-I INCDIR...]"; "[--]"; "FILE..."]
+let usage = String.concat " " ["usage:" ;basename; "[-o OUTPATH...]"; "[-I INCDIR...]"; "[--]"; "FILE..."]
 let opts: Opts.opt list = [
     {keys = ["-h"; "-?"; "--help"; "--?"]; fn = Apply_Unit (fun () -> set_bool print_help); help = "print this help and exit."};
     {keys = ["-V"; "--version"]; fn = Apply_Unit (fun () -> set_bool print_version); help = "display version and exit."};
@@ -66,16 +88,36 @@ let sources = List.map open_source args
 let includes = List.map make_include !include_paths
 let outputs = List.map open_output !output_paths
 
-let () = if !print_help then
-    print_endline help
-else if !print_usage || !print_version then
-    begin
-        (if !print_usage then
-            print_endline usage);
-        (if !print_version then
-            print_endline version);
-        (if !print_license then
-            print_endline license)
-    end
-else
-    print_string (String.concat " " args)
+let () =
+begin
+    if Array.length Sys.argv <= 1 then
+        print_stdout help
+    else
+        begin
+            if List.length sources = 0 then
+                begin
+                    print_usage := true;
+                    print_error "no source file(s) specified" 1
+                end;
+            if List.length outputs = 0; then
+                begin
+                    print_usage := true;
+                    print_error "no output file(s) specified" 1
+                end;
+            if !print_help then
+                print_stdout help
+            else if !print_usage || !print_version || !print_license then
+                begin
+                    (if !print_usage then
+                        print_stdout usage);
+                    (if !print_version then
+                        print_stdout version);
+                    (if !print_license then
+                        print_stdout license)
+                end
+            else
+                if !error = 0 then
+                    print_stdout (String.concat " " args)
+        end
+end;
+    exit !error
