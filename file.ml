@@ -1,12 +1,12 @@
 (* filesystem interactions *)
 
 (* fs helpers *)
-let is_dir (path: Path.path): bool =
+let is_dir path =
   try Sys.is_directory (Path.to_string path) with
       Sys_error _ -> false
-let path_exists (path: Path.path): bool =
+let path_exists path =
     Sys.file_exists (Path.to_string path)
-let is_file (path: Path.path): bool =
+let is_file path =
     (path_exists path) && not (is_dir path)
 
 (* file i/o helpers *)
