@@ -102,16 +102,6 @@ begin
         print_stdout help
     else
         begin
-            if List.length sources = 0 then
-                begin
-                    print_usage := true;
-                    print_error "no source file(s) specified" 1
-                end;
-            if List.length outputs = 0; then
-                begin
-                    print_usage := true;
-                    print_error "no output file(s) specified" 1
-                end;
             if !print_help then
                 print_stdout help
             else if !print_usage || !print_version || !print_license then
@@ -124,8 +114,18 @@ begin
                         print_stdout license)
                 end
             else
-                if !error = 0 then
-                    print_stdout (String.concat " " args)
+                begin
+                    if List.length sources = 0 then
+                        begin
+                            print_error "no source file(s) specified" 1
+                        end;
+                    if List.length outputs = 0; then
+                        begin
+                            print_error "no output file(s) specified" 1
+                        end;
+                    if !error = 0 then
+                        print_stdout (String.concat " " args)
+                end
         end
 end;
     handle_exit ()
