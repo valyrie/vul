@@ -69,7 +69,6 @@ let help = String.concat "\n" [
 
 let args = Opts.parse_opts (List.tl (Array.to_list Sys.argv)) opts
 
-(* TODO handle errors opening various input paths*)
 let open_output l s =
     try (Path.of_string s
     |> Path.normalize_partial
