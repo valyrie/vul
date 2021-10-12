@@ -63,7 +63,7 @@ module Include = struct
 end
 
 module Source = struct
-  type t = {path: Path.path; channel: in_channel; mutable buffer: bytes; mutable offset: int}
+  type t = {path: Path.path; channel: in_channel; mutable buffer: bytes; mutable offset: int; min_load: int}
   let open_path p =
     if not (path_exists p) then
       raise (FileNotFound (String.concat "" [(Path.to_string p); ": No such file"]))
@@ -76,25 +76,31 @@ module Source = struct
         in {path = p;
           channel = in_ch;
           buffer = Bytes.empty;
-          offset = 0}
+          offset = 0;
+          min_load = 0x10000}
   let load src len =
-    let buf_len = Bytes.length src.buffer in
-      if buf_len >= len then
-        buf_len
+    let ahead_dist = Bytes.length src.buffer - src.offset in
+      if ahead_dist >= len then
+        ahead_dist
       else
-        let read_buf = input_bytes src.channel (len - buf_len) in
-          let read_buf_len = Bytes.length read_buf in
-            src.buffer <- Bytes.cat src.buffer read_buf;
-            src.offset <- src.offset + read_buf_len;
-            buf_len + read_buf_len
+        let to_load = max len src.min_load in
+          let read_buf = input_bytes src.channel (len - to_load) in
+            let read_buf_len = Bytes.length read_buf in
+              src.buffer <- Bytes.cat src.buffer read_buf;
+              ahead_dist + read_buf_len
   let read src pos len =
     ()
   let tell src ahead =
-    ()
+    src.offset + ahead
   let look src ahead =
-    ()
+    if not (load src ahead < ahead) then
+      Some (Bytes.get src.buffer (tell src ahead))
+    else
+      None
   let advance src ahead =
-    ()
+    let loaded = load src ahead in
+      src.offset <- src.offset + loaded;
+      loaded
   let close src =
     try close_in src.channel with
       Sys_error _ -> raise (ReadError (String.concat "" [(Path.to_string src.path); ": Encountered read error while closing file"]))
