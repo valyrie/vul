@@ -70,7 +70,7 @@ let help = String.concat "\n" [
 ]
 
 (* TODO wire verbosity in *)
-let args = Opts.parse_opts (List.tl (Array.to_list Sys.argv)) opts
+let source_paths = Opts.parse_opts (List.tl (Array.to_list Sys.argv)) opts
 
 let open_output l s =
     try (Path.of_string s
@@ -100,7 +100,7 @@ let open_source l s =
 
 let outputs = List.fold_left open_output [] !output_paths
 let includes = List.fold_left make_include [] !include_paths
-let sources = List.fold_left open_source [] args
+let sources = List.fold_left open_source [] source_paths
 
 let handle_exit () =
     if !error != 0 then
@@ -131,7 +131,7 @@ try begin begin
                 end
             else
                 begin
-                    if List.length args = 0 then
+                    if List.length source_paths = 0 then
                         begin
                             print_error "no source file(s) specified"
                         end;
@@ -140,7 +140,7 @@ try begin begin
                             print_error "no output file(s) specified"
                         end;
                     if !error = 0 then
-                        print_stdout (String.concat " " args)
+                        print_stdout (String.concat " " source_paths)
                 end
         end
 end;
