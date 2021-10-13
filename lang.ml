@@ -5,8 +5,10 @@
 let basename = 
     List.hd (
         List.rev (
-            String.split_on_char '\\' (
-                Array.get Sys.argv 0)))
+            String.split_on_char '/' (
+                String.map
+                    (fun c: char -> if not (c = '\\') then c else '/')
+                    (Array.get Sys.argv 0))))
 
 (* print to stdout *)
 
