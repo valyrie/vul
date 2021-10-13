@@ -22,10 +22,10 @@ let print_stderr s =
     Printf.fprintf stderr "%s\n" s;
     flush stderr
 
-let print_error s c =
+let print_error s =
     Printf.fprintf stderr "%s: error: %s\n" basename s;
     flush stderr;
-    error := c
+    error := 1
 
 (* commandline options *)
 
@@ -74,27 +74,27 @@ let open_output l s =
     try (Path.of_string s
     |> Path.normalize_partial
     |> File.Output.open_path) :: l with
-        Path.MalformedPath _ -> print_error (String.concat "" [s; ": Malformed path"]) 1; l
-        | File.FileNotFound e -> print_error e 1; l
-        | File.WrongFileOrDir e -> print_error e 1; l
-        | File.WriteError e -> print_error e 1; l
+        Path.MalformedPath _ -> print_error (String.concat "" [s; ": Malformed path"]); l
+        | File.FileNotFound e -> print_error e; l
+        | File.WrongFileOrDir e -> print_error e; l
+        | File.WriteError e -> print_error e; l
 
 let make_include l s =
     try (Path.of_string s
     |> Path.normalize_partial
     |> File.Include.make_from_path) :: l with
-        Path.MalformedPath _ -> print_error (String.concat "" [s; ": Malformed path"]) 1; l
-        | File.FileNotFound e -> print_error e 1; l
-        | File.WrongFileOrDir e -> print_error e 1; l
+        Path.MalformedPath _ -> print_error (String.concat "" [s; ": Malformed path"]); l
+        | File.FileNotFound e -> print_error e; l
+        | File.WrongFileOrDir e -> print_error e; l
 
 let open_source l s =
     try (Path.of_string s
     |> Path.normalize_partial
     |> File.Source.open_path) :: l with
-        Path.MalformedPath _ -> print_error (String.concat "" [s; ": Malformed path"]) 1; l
-        | File.FileNotFound e -> print_error e 1; l
-        | File.WrongFileOrDir e -> print_error e 1; l
-        | File.ReadError e -> print_error e 1; l
+        Path.MalformedPath _ -> print_error (String.concat "" [s; ": Malformed path"]); l
+        | File.FileNotFound e -> print_error e; l
+        | File.WrongFileOrDir e -> print_error e; l
+        | File.ReadError e -> print_error e; l
 
 let outputs = List.fold_left open_output [] !output_paths
 let includes = List.fold_left make_include [] !include_paths
@@ -103,11 +103,11 @@ let sources = List.fold_left open_source [] args
 let handle_exit () =
     if !error != 0 then
         (try List.iter File.Output.destroy outputs with
-            File.WriteError s -> print_error s 1);
+            File.WriteError s -> print_error s);
     (try List.iter File.Output.close outputs with
-        File.WriteError s -> print_error s 1);
+        File.WriteError s -> print_error s);
     (try List.iter File.Source.close sources with
-        File.ReadError s -> print_error s 1);
+        File.ReadError s -> print_error s);
     exit !error
 
 let () =
@@ -131,11 +131,11 @@ try begin begin
                 begin
                     if List.length args = 0 then
                         begin
-                            print_error "no source file(s) specified" 1
+                            print_error "no source file(s) specified"
                         end;
                     if List.length !output_paths = 0; then
                         begin
-                            print_error "no output file(s) specified" 1
+                            print_error "no output file(s) specified"
                         end;
                     if !error = 0 then
                         print_stdout (String.concat " " args)
@@ -144,4 +144,4 @@ try begin begin
 end;
     handle_exit ()
 end with
-    x -> print_error (String.concat "" ["uncaught exception: "; (Printexc.to_string x)]) 1; handle_exit ()
+    x -> print_error (String.concat "" ["uncaught exception: "; (Printexc.to_string x)]); handle_exit ()
