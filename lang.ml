@@ -19,15 +19,25 @@ let print_stdout s =
 (* print errors to stderr *)
 
 let error = ref 0
-
 let print_stderr s =
     Printf.fprintf stderr "%s\n" s;
     flush stderr
-
 let print_error s =
     Printf.fprintf stderr "%s: error: %s\n" basename s;
     flush stderr;
     error := 1
+
+(* environment variables *)
+
+let rec get_env names = 
+    match names with
+        [] -> None
+        | hd :: tl -> let env = Sys.getenv_opt hd in
+            match env with
+                Some _ -> env
+                | None -> get_env tl
+
+(* todo environment variables *)
 
 (* commandline options *)
 
