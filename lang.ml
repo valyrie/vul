@@ -27,6 +27,10 @@ let print_error s =
     flush stderr;
     error := 1
 
+(* cwd *)
+
+let cwd = Path.of_string (Sys.getcwd ())
+
 (* environment variables *)
 
 let rec get_env names = 
