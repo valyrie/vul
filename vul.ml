@@ -76,6 +76,7 @@ let opts: Opts.opt list = [
 ]
 let help = String.concat "\n" [
     usage;
+    "cli tool for val's unnamed language";
     "";
     Opts.print_opts opts;
     "";
