@@ -1,4 +1,4 @@
-(* unnamed language, main module *)
+(* valyrie's unnamed language -- commandline tool *)
 
 (* basename *)
 
