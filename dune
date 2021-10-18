@@ -1,3 +1,2 @@
 (executable
- (name vul)
- (modules vul file opts path))
+ (name vul))
