@@ -38,30 +38,30 @@ let help = String.concat "\n" [
 let source_paths = Cli.Opt.parse opts
 
 let open_output l s =
-    try (Path.of_string s
-    |> Path.normalize_partial
+    try (File.Path.of_string s
+    |> File.Path.normalize_partial
     |> File.Output.open_path) :: l with
-        Path.MalformedPath _ -> Cli.Print.error (String.concat "" [s; ": Malformed path"]); l
-        | File.FileNotFound e -> Cli.Print.error e; l
-        | File.WrongFileOrDir e -> Cli.Print.error e; l
-        | File.WriteError e -> Cli.Print.error e; l
+        File.Path.MalformedPath _ -> Cli.Print.error (String.concat "" [s; ": Malformed path"]); l
+        | File.Io.FileNotFound e -> Cli.Print.error e; l
+        | File.Io.WrongFileOrDir e -> Cli.Print.error e; l
+        | File.Io.WriteError e -> Cli.Print.error e; l
 
 let make_include l s =
-    try (Path.of_string s
-    |> Path.normalize_partial
+    try (File.Path.of_string s
+    |> File.Path.normalize_partial
     |> File.Include.make_from_path) :: l with
-        Path.MalformedPath _ -> Cli.Print.error (String.concat "" [s; ": Malformed path"]); l
-        | File.FileNotFound e -> Cli.Print.error e; l
-        | File.WrongFileOrDir e -> Cli.Print.error e; l
+        File.Path.MalformedPath _ -> Cli.Print.error (String.concat "" [s; ": Malformed path"]); l
+        | File.Io.FileNotFound e -> Cli.Print.error e; l
+        | File.Io.WrongFileOrDir e -> Cli.Print.error e; l
 
 let open_source l s =
-    try (Path.of_string s
-    |> Path.normalize_partial
+    try (File.Path.of_string s
+    |> File.Path.normalize_partial
     |> File.Source.open_path) :: l with
-        Path.MalformedPath _ -> Cli.Print.error (String.concat "" [s; ": Malformed path"]); l
-        | File.FileNotFound e -> Cli.Print.error e; l
-        | File.WrongFileOrDir e -> Cli.Print.error e; l
-        | File.ReadError e -> Cli.Print.error e; l
+        File.Path.MalformedPath _ -> Cli.Print.error (String.concat "" [s; ": Malformed path"]); l
+        | File.Io.FileNotFound e -> Cli.Print.error e; l
+        | File.Io.WrongFileOrDir e -> Cli.Print.error e; l
+        | File.Io.ReadError e -> Cli.Print.error e; l
 
 let outputs = List.fold_left open_output [] !output_paths
 let includes = List.fold_left make_include [] !include_paths
@@ -70,11 +70,11 @@ let sources = List.fold_left open_source [] source_paths
 let handle_exit () =
     if !Cli.Print.error_code != 0 then
         (try List.iter File.Output.destroy outputs with
-            File.WriteError s -> Cli.Print.error s);
+            File.Io.WriteError s -> Cli.Print.error s);
     (try List.iter File.Output.close outputs with
-        File.WriteError s -> Cli.Print.error s);
+        File.Io.WriteError s -> Cli.Print.error s);
     (try List.iter File.Source.close sources with
-        File.ReadError s -> Cli.Print.error s);
+        File.Io.ReadError s -> Cli.Print.error s);
     exit !Cli.Print.error_code
 
 let () =
