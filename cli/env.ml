@@ -8,7 +8,7 @@ let basename =
                     (fun c: char -> if not (c = '\\') then c else '/')
                     (Array.get Sys.argv 0))))
 
-let cwd = Sys.getcwd ()
+let cwd = (File.Path.of_string (Sys.getcwd ()))
 
 let readvar var =
     Sys.getenv_opt var

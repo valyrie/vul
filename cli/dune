@@ -1,2 +1,3 @@
 (library
- (name cli))
+ (name cli)
+ (libraries file))
