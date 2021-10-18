@@ -2,13 +2,6 @@
 
 (* commandline options *)
 
-let set_bool (b: bool ref) =
-    b := true
-let inc_int (i: int ref) =
-    i := !i + 1
-let append_to_list (l: 'a list ref) (x: 'a) =
-    l := !l @ [x]
-
 let print_help = ref false
 let print_version = ref false
 let print_usage = ref false
