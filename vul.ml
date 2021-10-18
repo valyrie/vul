@@ -1,48 +1,5 @@
 (* valyrie's unnamed language -- commandline tool *)
 
-(* basename *)
-
-let basename = 
-    List.hd (
-        List.rev (
-            String.split_on_char '/' (
-                String.map
-                    (fun c: char -> if not (c = '\\') then c else '/')
-                    (Array.get Sys.argv 0))))
-
-(* print to stdout *)
-
-let print_stdout s =
-    Printf.fprintf stdout "%s\n" s;
-    flush stdout
-
-(* print errors to stderr *)
-
-let error = ref 0
-let print_stderr s =
-    Printf.fprintf stderr "%s\n" s;
-    flush stderr
-let print_error s =
-    Printf.fprintf stderr "%s: error: %s\n" basename s;
-    flush stderr;
-    error := 1
-
-(* cwd *)
-
-let cwd = Path.of_string (Sys.getcwd ())
-
-(* environment variables *)
-
-let rec get_env names = 
-    match names with
-        [] -> None
-        | hd :: tl -> let env = Sys.getenv_opt hd in
-            match env with
-                Some _ -> env
-                | None -> get_env tl
-
-(* todo environment variables *)
-
 (* commandline options *)
 
 let set_bool (b: bool ref) =
@@ -63,102 +20,102 @@ let (input_paths: string list ref) = ref []
 
 let license = "Copyright 2021, Valyrie Autumn, All rights reserved."
 let version = String.concat " " ["unnamed language"; "version 0a"]
-let usage = String.concat " " ["usage:" ;basename; "[-o OUTPATH...]"; "[-I INCDIR...]"; "[--]"; "FILE..."]
-let opts: Opts.opt list = [
-    {keys = ["-h"; "-?"; "--help"; "--?"]; fn = Apply_Unit (fun () -> set_bool print_help); help = "print this help and exit."};
-    {keys = ["-V"; "--version"]; fn = Apply_Unit (fun () -> set_bool print_version); help = "display version and exit."};
-    {keys = ["--usage"]; fn = Apply_Unit (fun () -> set_bool print_usage); help = "print usage and exit."};
-    {keys = ["--license"]; fn = Apply_Unit (fun () -> set_bool print_license); help = "print license and exit."};
-    {keys = ["-v"; "--verbose"]; fn = Apply_Unit (fun () -> inc_int verbosity); help = "increase verbosity; may be specified multiple times."};
-    {keys = ["-o"; "--output"]; fn = Apply_String (append_to_list output_paths); help = "specify an output path; may be specified multiple times."};
-    {keys = ["-I"; "--include"]; fn = Apply_String (append_to_list include_paths) ; help = "specify a directory to include; may be specified multiple times."};
-    {keys = ["--"]; fn = Rest; help = "explicitly terminate options."}
+let usage = String.concat " " ["usage:" ;Cli.Env.basename; "[-o OUTPATH...]"; "[-I INCDIR...]"; "[--]"; "FILE..."]
+let opts: Cli.Opt.t list = [
+    {keys = ["-h"; "-?"; "--help"; "--?"]; action = Set_bool print_help; help = "print this help and exit."};
+    {keys = ["-V"; "--version"]; action = Set_bool print_version; help = "display version and exit."};
+    {keys = ["--usage"]; action = Set_bool print_usage; help = "print usage and exit."};
+    {keys = ["--license"]; action = Set_bool print_license; help = "print license and exit."};
+    {keys = ["-v"; "--verbose"]; action = Inc_int verbosity; help = "increase verbosity; may be specified multiple times."};
+    {keys = ["-o"; "--output"]; action = Append_string output_paths; help = "specify an output path; may be specified multiple times."};
+    {keys = ["-I"; "--include"]; action = Append_string include_paths; help = "specify a directory to include; may be specified multiple times."};
+    {keys = ["--"]; action = Rest; help = "explicitly terminate options."}
 ]
 let help = String.concat "\n" [
     usage;
     "cli tool for val's unnamed language";
     "";
-    Opts.print_opts opts;
+    Cli.Opt.print opts;
     "";
     version;
     license
 ]
 
 (* TODO wire verbosity in *)
-let source_paths = Opts.parse_opts (List.tl (Array.to_list Sys.argv)) opts
+let source_paths = Cli.Opt.parse opts
 
 let open_output l s =
     try (Path.of_string s
     |> Path.normalize_partial
     |> File.Output.open_path) :: l with
-        Path.MalformedPath _ -> print_error (String.concat "" [s; ": Malformed path"]); l
-        | File.FileNotFound e -> print_error e; l
-        | File.WrongFileOrDir e -> print_error e; l
-        | File.WriteError e -> print_error e; l
+        Path.MalformedPath _ -> Cli.Print.error (String.concat "" [s; ": Malformed path"]); l
+        | File.FileNotFound e -> Cli.Print.error e; l
+        | File.WrongFileOrDir e -> Cli.Print.error e; l
+        | File.WriteError e -> Cli.Print.error e; l
 
 let make_include l s =
     try (Path.of_string s
     |> Path.normalize_partial
     |> File.Include.make_from_path) :: l with
-        Path.MalformedPath _ -> print_error (String.concat "" [s; ": Malformed path"]); l
-        | File.FileNotFound e -> print_error e; l
-        | File.WrongFileOrDir e -> print_error e; l
+        Path.MalformedPath _ -> Cli.Print.error (String.concat "" [s; ": Malformed path"]); l
+        | File.FileNotFound e -> Cli.Print.error e; l
+        | File.WrongFileOrDir e -> Cli.Print.error e; l
 
 let open_source l s =
     try (Path.of_string s
     |> Path.normalize_partial
     |> File.Source.open_path) :: l with
-        Path.MalformedPath _ -> print_error (String.concat "" [s; ": Malformed path"]); l
-        | File.FileNotFound e -> print_error e; l
-        | File.WrongFileOrDir e -> print_error e; l
-        | File.ReadError e -> print_error e; l
+        Path.MalformedPath _ -> Cli.Print.error (String.concat "" [s; ": Malformed path"]); l
+        | File.FileNotFound e -> Cli.Print.error e; l
+        | File.WrongFileOrDir e -> Cli.Print.error e; l
+        | File.ReadError e -> Cli.Print.error e; l
 
 let outputs = List.fold_left open_output [] !output_paths
 let includes = List.fold_left make_include [] !include_paths
 let sources = List.fold_left open_source [] source_paths
 
 let handle_exit () =
-    if !error != 0 then
+    if !Cli.Print.error_code != 0 then
         (try List.iter File.Output.destroy outputs with
-            File.WriteError s -> print_error s);
+            File.WriteError s -> Cli.Print.error s);
     (try List.iter File.Output.close outputs with
-        File.WriteError s -> print_error s);
+        File.WriteError s -> Cli.Print.error s);
     (try List.iter File.Source.close sources with
-        File.ReadError s -> print_error s);
-    exit !error
+        File.ReadError s -> Cli.Print.error s);
+    exit !Cli.Print.error_code
 
 let () =
 try begin begin
     if Array.length Sys.argv <= 1 then
-        print_stdout help
+        Cli.Print.print help
     else
         begin
             if !print_help then
-                print_stdout help
+                Cli.Print.print help
             else if !print_usage || !print_version || !print_license then
                 begin
                     (if !print_usage then
-                        print_stdout usage);
+                        Cli.Print.print usage);
                     (if !print_version then
-                        print_stdout version);
+                        Cli.Print.print version);
                     (if !print_license then
-                        print_stdout license)
+                        Cli.Print.print license)
                 end
             else
                 begin
                     if List.length source_paths = 0 then
                         begin
-                            print_error "no source file(s) specified"
+                            Cli.Print.error "no source file(s) specified"
                         end;
                     if List.length !output_paths = 0; then
                         begin
-                            print_error "no output file(s) specified"
+                            Cli.Print.error "no output file(s) specified"
                         end;
-                    if !error = 0 then
-                        print_stdout (String.concat " " source_paths)
+                    if !Cli.Print.error_code = 0 then
+                        Cli.Print.print (String.concat " " source_paths)
                 end
         end
 end;
     handle_exit ()
 end with
-    x -> print_error (String.concat "" ["uncaught exception: "; (Printexc.to_string x)]); handle_exit ()
+    x -> Cli.Print.error (String.concat "" ["uncaught exception: "; (Printexc.to_string x)]); handle_exit ()
