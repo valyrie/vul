@@ -27,7 +27,7 @@ let load src len =
             ahead_dist + read_buf_len
 let read_bytes src off ahead =
   let requested_load = off + ahead in
-    let loaded = load src (max (requested_load - (Bytes.length src.buffer)) 0) in
+    let _ = load src (max (requested_load - (Bytes.length src.buffer)) 0) in
       let available_bytes = Bytes.length src.buffer in
         if requested_load >= available_bytes then
           Bytes.sub src.buffer off ahead
