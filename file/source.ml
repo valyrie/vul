@@ -25,7 +25,17 @@ let load src len =
           let read_buf_len = Bytes.length read_buf in
             src.buffer <- Bytes.cat src.buffer read_buf;
             ahead_dist + read_buf_len
-(* TODO arbitrary position read *)
+let read_bytes src off ahead =
+  let requested_load = off + ahead in
+    let loaded = load src (max (requested_load - (Bytes.length src.buffer)) 0) in
+      let available_bytes = Bytes.length src.buffer in
+        if requested_load >= available_bytes then
+          Bytes.sub src.buffer off ahead
+        else
+          if off < available_bytes then
+            Bytes.sub src.buffer off (available_bytes - off)
+          else
+            Bytes.empty
 let tell src ahead =
   src.offset + ahead
 let look src ahead =
