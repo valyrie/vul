@@ -55,15 +55,18 @@ let rec lex_mlrem_body s l =
         end
         | None -> l |> push (Token.Err_unclosed_mlrem_body (s, l.offset))
         | _ -> advance l 1 |> lex_mlrem_body s
-let rec lex_rem l =
+let rec lex_slrem_body s l =
+    match look l 0 with
+        Some '\n' -> l
+        | None -> l
+        | _ -> advance l 1 |> lex_slrem_body s
+let lex_rem l =
     match look l 0 with
         Some '#' -> begin match look l 1 with
             Some '[' -> advance l 2 |> lex_mlrem_body l.offset
-            | _ -> advance l 1 |> lex_rem
+            | _ -> advance l 1 |> lex_slrem_body l.offset
         end
-        | Some '\n' -> l
-        | None -> l
-        | _ -> advance l 1 |> lex_rem
+        | _ -> l
 let rec lex_unknown_escape_str_body b s l =
     match look l 0 with
         Some '"' -> advance l 1 |> push (Token.Unknown_escape_string (b, s, l.offset + 1))
