@@ -1,6 +1,6 @@
 (* cli printing facilities *)
 
-let error_code = ref 1
+let error_code = ref 0
 let print s =
     Printf.fprintf stdout "%s\n" s;
     flush stdout
