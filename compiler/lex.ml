@@ -31,7 +31,11 @@ let is_implicit_break c =
     is_iws c || c = '\n' || c = '(' || c = ')' || c = '"'
 let rec skip_iws l =
     match look l 0 with
-        Some c when is_iws c -> skip_iws (advance l 1) 
+        Some c when is_iws c -> advance l 1 |> skip_iws
+        | Some '\\' -> begin match look l 1 with
+            Some '\n' -> advance l 2 |> skip_iws
+            | _ -> l
+        end
         | _ -> l
 let lex_sigil l =
     match look l 0 with
@@ -55,16 +59,20 @@ let rec lex_mlrem_body s l =
         end
         | None -> l |> push (Token.Err_unclosed_mlrem_body (s, l.offset))
         | _ -> advance l 1 |> lex_mlrem_body s
-let rec lex_slrem_body s l =
+let rec lex_slrem_body l =
     match look l 0 with
         Some '\n' -> l
+        | Some '\\' -> begin match look l 1 with
+            Some '\n' -> advance l 2 |> lex_slrem_body
+            | _ -> advance l 1 |> lex_slrem_body
+        end
         | None -> l
-        | _ -> advance l 1 |> lex_slrem_body s
+        | _ -> advance l 1 |> lex_slrem_body
 let lex_rem l =
     match look l 0 with
         Some '#' -> begin match look l 1 with
             Some '[' -> advance l 2 |> lex_mlrem_body l.offset
-            | _ -> advance l 1 |> lex_slrem_body l.offset
+            | _ -> advance l 1 |> lex_slrem_body
         end
         | _ -> l
 let rec lex_unknown_escape_str_body b s l =
@@ -103,7 +111,5 @@ let lex_ident l =
         Some c when is_implicit_break c -> l
         | None -> l
         | Some c -> advance l 1 |> lex_ident_body (bytes_of_char c) l.offset
-(* TODO line continuations *)
-(* TODO line continuations in line-remarks *)
 (* TODO numbers *)
 (* TODO symbols? *)
