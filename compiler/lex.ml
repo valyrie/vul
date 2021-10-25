@@ -174,11 +174,11 @@ let rec lex_hexint_body b s l =
         Some c when is_digit c -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char c)) s
         | Some '_' -> advance l 1 |> lex_hexint_body b s
         | Some ('a' | 'A') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'A')) s
-        | Some ('b' | 'B') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'A')) s
-        | Some ('c' | 'C') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'A')) s
-        | Some ('d' | 'D') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'A')) s
-        | Some ('e' | 'E') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'A')) s
-        | Some ('f' | 'F') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'A')) s
+        | Some ('b' | 'B') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'B')) s
+        | Some ('c' | 'C') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'C')) s
+        | Some ('d' | 'D') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'D')) s
+        | Some ('e' | 'E') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'E')) s
+        | Some ('f' | 'F') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'F')) s
         | Some ('h' | 'x' | 'H' | 'X') -> advance l 1 |> push (Token.Hexadecimal_int (b, s, l.offset + 1))
         | Some c when is_implicit_break c -> l |> push (Token.Hexadecimal_int (b, s, l.offset))
         | None -> l |> push (Token.Hexadecimal_int (b, s, l.offset))
