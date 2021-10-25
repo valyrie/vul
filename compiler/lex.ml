@@ -11,7 +11,7 @@ let look l n =
 let advance l n =
     {l with offset = l.offset + n}
 let push v l =
-    {l with v = v ::l.v}
+    {l with v = v :: l.v}
 module Token = struct
     type t =
         L_parenthesis of int * int
@@ -73,29 +73,31 @@ let rec lex_slrem_body l =
         end
         | None -> l
         | _ -> advance l 1 |> lex_slrem_body
+let sublex_escape_body l =
+    match look l 0 with
+        Some '"' -> advance l 1, Some '"'
+        | Some '\\' -> advance l 1, Some '\\'
+        | Some 'n' -> advance l 1, Some '\n'
+        | Some 'r' -> advance l 1, Some '\r'
+        | Some 't' -> advance l 1, Some '\t'
+        | Some 'b' -> advance l 1, Some '\b'
+        | None -> l, None
+        | Some _ -> l, None
 let rec lex_unknown_escape_str_body b s l =
     match look l 0 with
         Some '"' -> advance l 1 |> push (Token.Unknown_escape_string (b, s, l.offset))
-        | Some '\\' -> begin match look l 1 with
-            Some '"' -> advance l 2 |> lex_unknown_escape_str_body (Bytes.cat b (bytes_of_char '"')) s
-            | Some '\\' -> advance l 2 |> lex_unknown_escape_str_body (Bytes.cat b (bytes_of_char '\\')) s
-            | Some c -> advance l 2 |> lex_unknown_escape_str_body (Bytes.cat b (bytes_of_chars ['\\'; c])) s
-            | None -> advance l 1 |> push (Token.Unclosed_string_body (s, l.offset))
+        | Some '\\' -> begin match advance l 1 |> sublex_escape_body with
+            sl, Some ch -> sl |> lex_unknown_escape_str_body (Bytes.cat b (bytes_of_char ch)) s
+            | sl, None -> lex_unknown_escape_str_body (Bytes.cat b (bytes_of_char '\\')) s sl
         end
         | None -> l |> push (Token.Unclosed_string_body (s, l.offset))
         | Some c -> advance l 1 |> lex_unknown_escape_str_body (Bytes.cat b (bytes_of_char c)) s
 let rec lex_str_body b s l =
     match look l 0 with
         Some '"' -> advance l 1 |> push (Token.String (b, s, l.offset + 1))
-        | Some '\\' -> begin match look l 1 with
-            Some '"' -> advance l 2 |> lex_str_body (Bytes.cat b (bytes_of_char '"')) s
-            | Some '\\' -> advance l 2 |> lex_str_body (Bytes.cat b (bytes_of_char '\\')) s
-            | Some 'n' -> advance l 2 |> lex_str_body (Bytes.cat b (bytes_of_char '\n')) s
-            | Some 'r' -> advance l 2 |> lex_str_body (Bytes.cat b (bytes_of_char '\r')) s
-            | Some 't' -> advance l 2 |> lex_str_body (Bytes.cat b (bytes_of_char '\t')) s
-            | Some 'b' -> advance l 2 |> lex_str_body (Bytes.cat b (bytes_of_char '\b')) s
-            | None -> advance l 1 |> push (Token.Unclosed_string_body (s, l.offset))
-            | Some _ -> lex_unknown_escape_str_body b s l
+        | Some '\\' -> begin match advance l 1 |> sublex_escape_body with
+            sl, Some ch -> sl |> lex_str_body (Bytes.cat b (bytes_of_char ch)) s
+            | _, None -> lex_unknown_escape_str_body b s l
         end
         | None -> l |> push (Token.Unclosed_string_body (s, l.offset))
         | Some c -> advance l 1 |> lex_str_body (Bytes.cat b (bytes_of_char c)) s
@@ -169,6 +171,8 @@ let rec lex_ident_body b s l =
 (* TODO integers that start like 0x_ should be considered malformed *)
 (* TODO fractional numbers *)
 (* TODO additional string escape sequences (\x, \u, \0, \octal)*)
+(* TODO the identifier _ should be considered special *)
+(* TODO special identifiers *)
 let lex_token l =
     let stripped = skip_iws l in
         match look stripped 0 with
