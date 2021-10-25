@@ -14,8 +14,9 @@ let push v l =
     {l with v = v ::l.v}
 module Token = struct
     type t =
-        Lparen of int * int
-        | Rparen of int * int
+        L_parenthesis of int * int
+        | R_parenthesis of int * int
+        | Quote of int * int
         | Eol of int * int
         | Err_unclosed_mlrem_body of int * int
         | Unknown_escape_string of bytes * int * int
@@ -32,7 +33,7 @@ module Token = struct
         | Malformed_hexadecimal_integer of int * int
 end
 let of_source s =
-    {v = [Token.Lparen (0, 0)]; offset = 0; source = s}
+    {v = [Token.L_parenthesis (0, 0)]; offset = 0; source = s}
 let is_iws c =
     c = ' ' || c = '\t'
 let is_implicit_break c =
@@ -53,9 +54,10 @@ let rec skip_iws l =
         | _ -> l
 let lex_sigil l =
     match look l 0 with
-        Some '(' -> advance l 1 |> push (Token.Lparen (l.offset, l.offset + 1))
-        | Some ')' -> advance l 1 |> push (Token.Rparen (l.offset, l.offset + 1))
-        | None -> advance l 1 |> push (Token.Rparen (l.offset, l.offset))
+        Some '(' -> advance l 1 |> push (Token.L_parenthesis (l.offset, l.offset + 1))
+        | Some ')' -> advance l 1 |> push (Token.R_parenthesis (l.offset, l.offset + 1))
+        | Some '\'' -> advance l 1 |> push (Token.Quote (l.offset, l.offset + 1))
+        | None -> advance l 1 |> push (Token.R_parenthesis (l.offset, l.offset))
         | _ -> l
 let lex_eol l =
     match look l 0 with
@@ -195,5 +197,4 @@ let lex_int l =
 (* TODO suffixed integer numbers *)
 (* TODO fractional numbers *)
 (* TODO more string escape sequences *)
-(* TODO symbols? *)
 (* TODO lex_token *)
