@@ -90,6 +90,10 @@ let rec lex_str_body b s l =
         | Some '\\' -> begin match look l 1 with
             Some '"' -> advance l 2 |> lex_str_body (Bytes.cat b (bytes_of_char '"')) s
             | Some '\\' -> advance l 2 |> lex_str_body (Bytes.cat b (bytes_of_char '\\')) s
+            | Some 'n' -> advance l 2 |> lex_str_body (Bytes.cat b (bytes_of_char '\n')) s
+            | Some 'r' -> advance l 2 |> lex_str_body (Bytes.cat b (bytes_of_char '\r')) s
+            | Some 't' -> advance l 2 |> lex_str_body (Bytes.cat b (bytes_of_char '\t')) s
+            | Some 'b' -> advance l 2 |> lex_str_body (Bytes.cat b (bytes_of_char '\b')) s
             | None -> advance l 1 |> push (Token.Unclosed_string_body (s, l.offset))
             | Some _ -> lex_unknown_escape_str_body b s l
         end
@@ -162,8 +166,9 @@ let rec lex_ident_body b s l =
         | Some c -> advance l 1 |> lex_ident_body (Bytes.cat b (bytes_of_char c)) s
 (* TODO symbols *)
 (* TODO suffixed integer numbers *)
+(* TODO integers that start like 0x_ should be considered malformed *)
 (* TODO fractional numbers *)
-(* TODO more string escape sequences *)
+(* TODO additional string escape sequences (\x, \u, \0, \octal)*)
 let lex_token l =
     let stripped = skip_iws l in
         match look stripped 0 with
