@@ -22,6 +22,14 @@ module Token = struct
         | String of bytes * int * int
         | Err_unclosed_string_body of int * int
         | Identifier of bytes * int * int
+        | Binary_int of bytes * int * int
+        | Malformed_binary_int of int * int
+        | Octal_int of bytes * int * int
+        | Malformed_octal_int of int * int
+        | Decimal_int of bytes * int * int
+        | Malformed_decimal_int of int * int
+        | Hexadecimal_int of bytes * int * int
+        | Malformed_hexadecimal_int of int * int
 end
 let of_source s =
     {v = [Token.Lparen (0, 0)]; offset = 0; source = s}
@@ -29,6 +37,12 @@ let is_iws c =
     c = ' ' || c = '\t'
 let is_implicit_break c =
     is_iws c || c = '\n' || c = '(' || c = ')' || c = '"'
+let is_bin_digit c =
+    c = '0' || c = '1'
+let is_oct_digit c =
+    is_bin_digit c || c = '2' || c = '3' || c = '4' || c = '5' || c = '6' || c = '7'
+let is_digit c =
+    is_oct_digit c || c = '8' || c = '9'
 let rec skip_iws l =
     match look l 0 with
         Some c when is_iws c -> advance l 1 |> skip_iws
@@ -77,7 +91,7 @@ let lex_rem l =
         | _ -> l
 let rec lex_unknown_escape_str_body b s l =
     match look l 0 with
-        Some '"' -> advance l 1 |> push (Token.Unknown_escape_string (b, s, l.offset + 1))
+        Some '"' -> advance l 1 |> push (Token.Unknown_escape_string (b, s, l.offset))
         | Some '\\' -> begin match look l 1 with
             Some '"' -> advance l 2 |> lex_unknown_escape_str_body (Bytes.cat b (bytes_of_char '"')) s
             | Some '\\' -> advance l 2 |> lex_unknown_escape_str_body (Bytes.cat b (bytes_of_char '\\')) s
@@ -103,13 +117,74 @@ let lex_str l =
         | _ -> l
 let rec lex_ident_body b s l =
     match look l 0 with
-        Some c when is_implicit_break c -> l |> push (Token.Identifier (b, s, l.offset + 1))
-        | None -> l |> push (Token.Identifier (b, s, l.offset + 1))
+        Some c when is_implicit_break c -> l |> push (Token.Identifier (b, s, l.offset))
+        | None -> l |> push (Token.Identifier (b, s, l.offset))
         | Some c -> advance l 1 |> lex_ident_body (Bytes.cat b (bytes_of_char c)) s
 let lex_ident l =
     match look l 0 with
         Some c when is_implicit_break c -> l
         | None -> l
         | Some c -> advance l 1 |> lex_ident_body (bytes_of_char c) l.offset
-(* TODO numbers *)
+let rec lex_mal_binint_body s l =
+    match look l 0 with
+        Some c when is_implicit_break c -> l |> push (Token.Malformed_binary_int (s, l.offset))
+        | None -> l |> push (Token.Malformed_binary_int (s, l.offset))
+        | Some _ -> advance l 1 |> lex_mal_binint_body s
+let rec lex_binint_body b s l =
+    match look l 0 with
+        Some c when is_bin_digit c -> advance l 1 |> lex_binint_body (Bytes.cat b (bytes_of_char c)) s
+        | Some '_' -> advance l 1 |> lex_binint_body b s
+        | Some ('b' | 'y' | 'B' | 'Y') -> advance l 1 |> push (Token.Binary_int (b, s, l.offset + 1))
+        | Some c when is_implicit_break c -> l |> push (Token.Binary_int (b, s, l.offset))
+        | None -> l |> push (Token.Binary_int (b, s, l.offset))
+        | Some _ -> l |> lex_mal_binint_body s
+let rec lex_mal_octint_body s l =
+    match look l 0 with
+        Some c when is_implicit_break c -> l |> push (Token.Malformed_octal_int (s, l.offset))
+        | None -> l |> push (Token.Malformed_octal_int (s, l.offset))
+        | Some _ -> advance l 1 |> lex_mal_octint_body s
+let rec lex_octint_body b s l =
+    match look l 0 with
+        Some c when is_oct_digit c -> advance l 1 |> lex_octint_body (Bytes.cat b (bytes_of_char c)) s
+        | Some '_' -> advance l 1 |> lex_octint_body b s
+        | Some ('o' | 'q' | 'O' | 'Q') -> advance l 1 |> push (Token.Octal_int (b, s, l.offset + 1))
+        | Some c when is_implicit_break c -> l |> push (Token.Octal_int (b, s, l.offset))
+        | None -> l |> push (Token.Octal_int (b, s, l.offset))
+        | Some _ -> l |> lex_mal_octint_body s
+let rec lex_mal_decint_body s l =
+    match look l 0 with
+        Some c when is_implicit_break c -> l |> push (Token.Malformed_decimal_int (s, l.offset))
+        | None -> l |> push (Token.Malformed_decimal_int (s, l.offset))
+        | Some _ -> advance l 1 |> lex_mal_decint_body s
+let rec lex_decint_body b s l =
+    match look l 0 with
+        Some c when is_digit c -> advance l 1 |> lex_decint_body (Bytes.cat b (bytes_of_char c)) s
+        | Some '_' -> advance l 1 |> lex_decint_body b s
+        | Some ('d' | 't' | 'D' | 'T') -> advance l 1 |> push (Token.Decimal_int (b, s, l.offset + 1))
+        | Some c when is_implicit_break c -> l |> push (Token.Decimal_int (b, s, l.offset))
+        | None -> l |> push (Token.Decimal_int (b, s, l.offset))
+        | Some _ -> l |> lex_mal_decint_body s
+let rec lex_mal_hexint_body s l =
+    match look l 0 with
+        Some c when is_implicit_break c -> l |> push (Token.Malformed_hexadecimal_int (s, l.offset))
+        | None -> l |> push (Token.Malformed_hexadecimal_int (s, l.offset))
+        | Some _ -> advance l 1 |> lex_mal_hexint_body s
+let rec lex_hexint_body b s l =
+    match look l 0 with
+        Some c when is_digit c -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char c)) s
+        | Some '_' -> advance l 1 |> lex_hexint_body b s
+        | Some ('a' | 'A') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'A')) s
+        | Some ('b' | 'B') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'A')) s
+        | Some ('c' | 'C') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'A')) s
+        | Some ('d' | 'D') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'A')) s
+        | Some ('e' | 'E') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'A')) s
+        | Some ('f' | 'F') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'A')) s
+        | Some ('h' | 'x' | 'H' | 'X') -> advance l 1 |> push (Token.Hexadecimal_int (b, s, l.offset + 1))
+        | Some c when is_implicit_break c -> l |> push (Token.Hexadecimal_int (b, s, l.offset))
+        | None -> l |> push (Token.Hexadecimal_int (b, s, l.offset))
+        | Some _ -> l |> lex_mal_hexint_body s
+(* TODO integer numbers *)
+(* TODO fractional numbers *)
+(* TODO more string escape sequences *)
 (* TODO symbols? *)
+(* TODO lex_token *)
