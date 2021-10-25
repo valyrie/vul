@@ -23,6 +23,7 @@ module Token = struct
         | String of bytes * int * int
         | Err_unclosed_string_body of int * int
         | Identifier of bytes * int * int
+        | Forbidden_identifier of int * int
         | Binary_integer of bytes * int * int
         | Malformed_binary_integer of int * int
         | Octal_integer of bytes * int * int
@@ -37,7 +38,9 @@ let of_source s =
 let is_iws c =
     c = ' ' || c = '\t'
 let is_implicit_break c =
-    is_iws c || c = '\n' || c = '(' || c = ')' || c = '"'
+    is_iws c || c = '\n' || c = '(' || c = ')'
+let is_forbidden_sigil c =
+    c = '"' || c = '\'' 
 let is_bin_digit c =
     c = '0' || c = '1'
 let is_oct_digit c =
@@ -117,9 +120,15 @@ let lex_str l =
     match look l 0 with
         Some '"' -> advance l 1 |> lex_str_body Bytes.empty l.offset
         | _ -> l
+let rec lex_forbidden_ident_body s l =
+    match look l 0 with
+        Some c when is_implicit_break c -> l |> push (Token.Forbidden_identifier (s, l.offset))
+        | None -> l |> push (Token.Forbidden_identifier (s, l.offset))
+        | Some c -> advance l 1 |> lex_forbidden_ident_body s
 let rec lex_ident_body b s l =
     match look l 0 with
         Some c when is_implicit_break c -> l |> push (Token.Identifier (b, s, l.offset))
+        | Some c when is_forbidden_sigil c -> l |> lex_forbidden_ident_body s
         | None -> l |> push (Token.Identifier (b, s, l.offset))
         | Some c -> advance l 1 |> lex_ident_body (Bytes.cat b (bytes_of_char c)) s
 let lex_ident l =
@@ -193,7 +202,7 @@ let lex_int l =
         end
         | Some c when is_digit c -> l |> lex_decint_body Bytes.empty l.offset
         | _ -> l
-
+(* TODO symbols *)
 (* TODO suffixed integer numbers *)
 (* TODO fractional numbers *)
 (* TODO more string escape sequences *)
