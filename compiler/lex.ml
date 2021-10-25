@@ -55,20 +55,6 @@ let rec skip_iws l =
             | _ -> l
         end
         | _ -> l
-let lex_sigil l =
-    match look l 0 with
-        Some '(' -> advance l 1 |> push (Token.L_parenthesis (l.offset, l.offset + 1))
-        | Some ')' -> advance l 1 |> push (Token.R_parenthesis (l.offset, l.offset + 1))
-        | Some '\'' -> advance l 1 |> push (Token.Quote (l.offset, l.offset + 1))
-        | None -> advance l 1 |> push (Token.R_parenthesis (l.offset, l.offset))
-        | _ -> l
-let lex_eol l =
-    match look l 0 with
-        Some '\n' -> begin match look l 1 with
-            Some '\r' -> advance l 2 |> push (Token.Eol (l.offset, l.offset + 2))
-            | _ -> advance l 1 |> push (Token.Eol (l.offset, l.offset + 1))
-        end
-        | _ -> l
 let rec lex_mlrem_body s l =
     match look l 0 with
         Some '#' -> begin match look l 1 with
@@ -87,13 +73,6 @@ let rec lex_slrem_body l =
         end
         | None -> l
         | _ -> advance l 1 |> lex_slrem_body
-let lex_rem l =
-    match look l 0 with
-        Some '#' -> begin match look l 1 with
-            Some '[' -> advance l 2 |> lex_mlrem_body l.offset
-            | _ -> advance l 1 |> lex_slrem_body
-        end
-        | _ -> l
 let rec lex_unknown_escape_str_body b s l =
     match look l 0 with
         Some '"' -> advance l 1 |> push (Token.Unknown_escape_string (b, s, l.offset))
@@ -116,27 +95,6 @@ let rec lex_str_body b s l =
         end
         | None -> l |> push (Token.Unclosed_string_body (s, l.offset))
         | Some c -> advance l 1 |> lex_str_body (Bytes.cat b (bytes_of_char c)) s
-let lex_str l =
-    match look l 0 with
-        Some '"' -> advance l 1 |> lex_str_body Bytes.empty l.offset
-        | _ -> l
-let rec lex_forbidden_ident_body s l =
-    match look l 0 with
-        Some c when is_implicit_break c -> l |> push (Token.Forbidden_identifier (s, l.offset))
-        | None -> l |> push (Token.Forbidden_identifier (s, l.offset))
-        | Some _ -> advance l 1 |> lex_forbidden_ident_body s
-let rec lex_ident_body b s l =
-    match look l 0 with
-        Some c when is_implicit_break c -> l |> push (Token.Identifier (b, s, l.offset))
-        | Some '"' -> l |> push (Token.Identifier (b, s, l.offset))
-        | Some c when is_forbidden_sigil c -> l |> lex_forbidden_ident_body s
-        | None -> l |> push (Token.Identifier (b, s, l.offset))
-        | Some c -> advance l 1 |> lex_ident_body (Bytes.cat b (bytes_of_char c)) s
-let lex_ident l =
-    match look l 0 with
-        Some c when is_implicit_break c -> l
-        | None -> l
-        | Some c -> advance l 1 |> lex_ident_body (bytes_of_char c) l.offset
 let rec lex_mal_binint_body s l =
     match look l 0 with
         Some c when is_implicit_break c -> l |> push (Token.Malformed_binary_integer (s, l.offset))
@@ -191,20 +149,50 @@ let rec lex_hexint_body b s l =
         | Some c when is_implicit_break c -> l |> push (Token.Hexadecimal_integer (b, s, l.offset))
         | None -> l |> push (Token.Hexadecimal_integer (b, s, l.offset))
         | Some _ -> l |> lex_mal_hexint_body s
-let lex_int l =
+let rec lex_forbidden_ident_body s l =
     match look l 0 with
-        Some '0' -> begin match look l 1 with
-            Some ('b' | 'B' | 'y' | 'Y') -> advance l 2 |> lex_binint_body Bytes.empty l.offset
-            | Some ('o' | 'O' | 'q' | 'Q') -> advance l 2 |> lex_octint_body Bytes.empty l.offset
-            | Some ('d' | 'D' | 't' | 'T') -> advance l 2 |> lex_decint_body Bytes.empty l.offset
-            | Some ('h' | 'H' | 'x' | 'X') -> advance l 2 |> lex_hexint_body Bytes.empty l.offset
-            | Some c when is_digit c -> l |> lex_decint_body Bytes.empty l.offset
-            | _ -> l |> lex_decint_body Bytes.empty l.offset
-        end
-        | Some c when is_digit c -> l |> lex_decint_body Bytes.empty l.offset
-        | _ -> l
+        Some c when is_implicit_break c -> l |> push (Token.Forbidden_identifier (s, l.offset))
+        | None -> l |> push (Token.Forbidden_identifier (s, l.offset))
+        | Some _ -> advance l 1 |> lex_forbidden_ident_body s
+let rec lex_ident_body b s l =
+    match look l 0 with
+        Some c when is_implicit_break c -> l |> push (Token.Identifier (b, s, l.offset))
+        | Some c when is_forbidden_sigil c -> l |> lex_forbidden_ident_body s
+        | None -> l |> push (Token.Identifier (b, s, l.offset))
+        | Some c -> advance l 1 |> lex_ident_body (Bytes.cat b (bytes_of_char c)) s
 (* TODO symbols *)
 (* TODO suffixed integer numbers *)
 (* TODO fractional numbers *)
 (* TODO more string escape sequences *)
-(* TODO lex_token *)
+let lex_token l =
+    let stripped = skip_iws l in
+        match look stripped 0 with
+            (* SIGILS *)
+            | Some '(' -> advance l 1 |> push (Token.L_parenthesis (l.offset, l.offset + 1))
+            | Some ')' -> advance l 1 |> push (Token.R_parenthesis (l.offset, l.offset + 1))
+            | Some '\'' -> advance l 1 |> push (Token.Quote (l.offset, l.offset + 1))
+            | None -> advance l 1 |> push (Token.R_parenthesis (l.offset, l.offset))
+            (* EOL *)
+            | Some '\n' -> begin match look l 1 with
+                Some '\r' -> advance l 2 |> push (Token.Eol (l.offset, l.offset + 2))
+                | _ -> advance l 1 |> push (Token.Eol (l.offset, l.offset + 1))
+            end
+            (* REMARKS *)
+            | Some '#' -> begin match look l 1 with
+                Some '[' -> advance l 2 |> lex_mlrem_body l.offset
+                | _ -> advance l 1 |> lex_slrem_body
+            end
+            (* STRINGS *)
+            | Some '"' -> advance l 1 |> lex_str_body Bytes.empty l.offset
+            (* INTEGERS *)
+            | Some '0' -> begin match look l 1 with
+                Some ('b' | 'B' | 'y' | 'Y') -> advance l 2 |> lex_binint_body Bytes.empty l.offset
+                | Some ('o' | 'O' | 'q' | 'Q') -> advance l 2 |> lex_octint_body Bytes.empty l.offset
+                | Some ('d' | 'D' | 't' | 'T') -> advance l 2 |> lex_decint_body Bytes.empty l.offset
+                | Some ('h' | 'H' | 'x' | 'X') -> advance l 2 |> lex_hexint_body Bytes.empty l.offset
+                | Some c when is_digit c -> l |> lex_decint_body Bytes.empty l.offset
+                | _ -> l |> lex_decint_body Bytes.empty l.offset
+            end
+            | Some c when is_digit c -> l |> lex_decint_body Bytes.empty l.offset
+            (* IDENTIFIERS *)
+            | Some c -> advance l 1 |> lex_ident_body (bytes_of_char c) l.offset
