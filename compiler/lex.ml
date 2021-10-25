@@ -18,10 +18,10 @@ module Token = struct
         | R_parenthesis of int * int
         | Quote of int * int
         | Eol of int * int
-        | Err_unclosed_mlrem_body of int * int
+        | Unclosed_mlrem_body of int * int
         | Unknown_escape_string of bytes * int * int
         | String of bytes * int * int
-        | Err_unclosed_string_body of int * int
+        | Unclosed_string_body of int * int
         | Identifier of bytes * int * int
         | Forbidden_identifier of int * int
         | Binary_integer of bytes * int * int
@@ -76,7 +76,7 @@ let rec lex_mlrem_body s l =
             | Some '[' -> advance l 2 |> lex_mlrem_body (l.offset) |> lex_mlrem_body s
             | _ -> advance l 1 |> lex_mlrem_body s
         end
-        | None -> l |> push (Token.Err_unclosed_mlrem_body (s, l.offset))
+        | None -> l |> push (Token.Unclosed_mlrem_body (s, l.offset))
         | _ -> advance l 1 |> lex_mlrem_body s
 let rec lex_slrem_body l =
     match look l 0 with
@@ -101,9 +101,9 @@ let rec lex_unknown_escape_str_body b s l =
             Some '"' -> advance l 2 |> lex_unknown_escape_str_body (Bytes.cat b (bytes_of_char '"')) s
             | Some '\\' -> advance l 2 |> lex_unknown_escape_str_body (Bytes.cat b (bytes_of_char '\\')) s
             | Some c -> advance l 2 |> lex_unknown_escape_str_body (Bytes.cat b (bytes_of_chars ['\\'; c])) s
-            | None -> advance l 1 |> push (Token.Err_unclosed_string_body (s, l.offset))
+            | None -> advance l 1 |> push (Token.Unclosed_string_body (s, l.offset))
         end
-        | None -> l |> push (Token.Err_unclosed_string_body (s, l.offset))
+        | None -> l |> push (Token.Unclosed_string_body (s, l.offset))
         | Some c -> advance l 1 |> lex_unknown_escape_str_body (Bytes.cat b (bytes_of_char c)) s
 let rec lex_str_body b s l =
     match look l 0 with
@@ -111,10 +111,10 @@ let rec lex_str_body b s l =
         | Some '\\' -> begin match look l 1 with
             Some '"' -> advance l 2 |> lex_str_body (Bytes.cat b (bytes_of_char '"')) s
             | Some '\\' -> advance l 2 |> lex_str_body (Bytes.cat b (bytes_of_char '\\')) s
-            | None -> advance l 1 |> push (Token.Err_unclosed_string_body (s, l.offset))
+            | None -> advance l 1 |> push (Token.Unclosed_string_body (s, l.offset))
             | Some _ -> lex_unknown_escape_str_body b s l
         end
-        | None -> l |> push (Token.Err_unclosed_string_body (s, l.offset))
+        | None -> l |> push (Token.Unclosed_string_body (s, l.offset))
         | Some c -> advance l 1 |> lex_str_body (Bytes.cat b (bytes_of_char c)) s
 let lex_str l =
     match look l 0 with
