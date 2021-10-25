@@ -33,8 +33,6 @@ let help = String.concat "\n" [
     version;
     license
 ]
-
-(* TODO wire verbosity in *)
 let source_paths = Cli.Opt.parse opts
 
 let open_output l s =

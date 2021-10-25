@@ -2,7 +2,6 @@
 
 type t = {path: Path.t; channel: out_channel}
 let open_path p =
-  (* TODO check for existence of parent directory *)
   try {path = p; channel = (open_out_bin (Path.to_string p))} with
     Sys_error _ -> raise (Io.WriteError (String.concat "" [(Path.to_string p); ": Unable to open file for writing"]))
 let output_bytes out b =

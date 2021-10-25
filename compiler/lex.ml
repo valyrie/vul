@@ -166,13 +166,6 @@ let rec lex_ident_body b s l =
         | Some c when is_forbidden_sigil c -> l |> lex_forbidden_ident_body s
         | None -> l |> push (Token.Identifier (b, s, l.offset))
         | Some c -> advance l 1 |> lex_ident_body (Bytes.cat b (bytes_of_char c)) s
-(* TODO symbols *)
-(* TODO suffixed integer numbers *)
-(* TODO integers that start like 0x_ should be considered malformed *)
-(* TODO fractional numbers *)
-(* TODO additional string escape sequences (\x, \u, \0, \octal)*)
-(* TODO the identifier _ should be considered special *)
-(* TODO special identifiers *)
 let lex_token l =
     let stripped = skip_iws l in
         match look stripped 0 with
