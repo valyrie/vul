@@ -124,7 +124,7 @@ let rec lex_forbidden_ident_body s l =
     match look l 0 with
         Some c when is_implicit_break c -> l |> push (Token.Forbidden_identifier (s, l.offset))
         | None -> l |> push (Token.Forbidden_identifier (s, l.offset))
-        | Some c -> advance l 1 |> lex_forbidden_ident_body s
+        | Some _ -> advance l 1 |> lex_forbidden_ident_body s
 let rec lex_ident_body b s l =
     match look l 0 with
         Some c when is_implicit_break c -> l |> push (Token.Identifier (b, s, l.offset))
