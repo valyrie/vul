@@ -138,6 +138,22 @@ let rec lex_slrem_body l =
         end
         | None -> l
         | _ -> advance l 1 |> lex_slrem_body
+let rec sublex_octal s o l =
+    let open Token.Base in
+        if String.length s < 1 then
+            match look l 1 with
+                Some c when is_digit_of c Octal -> advance l 1 |> sublex_octal (String.concat "" [s; String.make 1 c]) o
+                | _ -> l, None
+        else if String.length s < 3 then
+            match look l 1 with
+                Some c when is_digit_of c Octal -> advance l 1 |> sublex_octal (String.concat "" [s; String.make 1 c]) o
+                | _ -> advance l 1, Some (Char.chr (int_of_string (String.concat "" ["0o" ;s])))
+        else
+            let code = int_of_string (String.concat "" ["0o" ;s]) in
+                if code <= 0xFF then
+                    advance l 1, Some (Char.chr code)
+                else
+                    o, None
 let rec sublex_hexadecimal s l =
     let open Token.Base in
         if String.length s < 1 then
@@ -158,7 +174,7 @@ let sublex_escape_body l =
         | Some 'r' -> advance l 1, Some '\r'
         | Some 't' -> advance l 1, Some '\t'
         | Some 'b' -> advance l 1, Some '\b'
-        | Some '0' -> advance l 1, Some '\000'
+        | Some 'o' -> l |> sublex_octal "" l
         | Some 'x' -> l |> sublex_hexadecimal ""
         | None -> l, None
         | Some _ -> l, None
