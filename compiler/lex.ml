@@ -63,6 +63,22 @@ module Token = struct
         let is_digit c =
             is_digit_of c Hexadecimal
     end
+    module Sign = struct
+        type t =
+            Negative
+            | Positive
+        let of_char_opt c =
+            match c with
+                '-' -> Some Negative
+                | '+' -> Some Positive
+                | _ -> None
+        let is_sign c =
+            of_char_opt c != None
+        let of_char c =
+            match of_char_opt c with
+                Some b -> b
+                | None -> raise (Invalid_argument "unknown sign")
+    end
     type t =
         L_parenthesis of from
         | R_parenthesis of from
@@ -73,7 +89,7 @@ module Token = struct
         | String of bytes * from
         | Unclosed_string_body of from
         | Forbidden_identifier of from
-        | Integer of bytes * Base.t * from
+        | Integer of Sign.t * bytes * Base.t * from
         | Malformed_integer of from
         | Identifier of bytes * from
         | Unknown_escape_identifier of bytes * from
@@ -153,33 +169,38 @@ let rec lex_mal_int_body s l =
         Some c when is_implicit_break c -> l |> push (Token.Malformed_integer (from s l.offset l.source))
         | None -> l |> push (Token.Malformed_integer (from s l.offset l.source))
         | Some _ -> advance l 1 |> lex_mal_int_body s
-let produce_integer p e b s l =
+let produce_integer n p e b s l =
     match p with
-        None -> l |> push (Token.Integer (b, e, from s l.offset l.source))
+        None -> l |> push (Token.Integer (n, b, e, from s l.offset l.source))
         | Some prefix -> if Token.Base.within e prefix then
-                l |> push (Token.Integer (b, prefix, from s l.offset l.source))
+                l |> push (Token.Integer (n, b, prefix, from s l.offset l.source))
             else
                 l |> push (Token.Malformed_integer (from s l.offset l.source))
-let rec lex_int_body p e b s l =
+let rec lex_int_body n p e b s l =
     let open Token.Base in
         match look l 0 with
-            Some c when is_digit c -> advance l 1 |> lex_int_body p (rebase e (of_digit c)) (Bytes.cat b (bytes_of_char c)) s
-            | Some '_' -> advance l 1 |> lex_int_body p e b s
+            Some c when is_digit c -> advance l 1 |> lex_int_body n p (rebase e (of_digit c)) (Bytes.cat b (bytes_of_char c)) s
+            | Some '_' -> advance l 1 |> lex_int_body n p e b s
             | Some c when is_base c -> if p = None then
-                    advance l 1 |> produce_integer (of_char_opt c) e b s
+                    advance l 1 |> produce_integer n (of_char_opt c) e b s
                 else
                     l |> lex_mal_int_body s
             | Some c when is_implicit_break c -> if p = None then
-                    l |> produce_integer (Some Decimal) e b s
+                    l |> produce_integer n (Some Decimal) e b s
             else
-                    l |> produce_integer p e b s    
-            | None -> l |> produce_integer p e b s
+                    l |> produce_integer n p e b s    
+            | None -> l |> produce_integer n p e b s
             | Some _ -> l |> lex_mal_int_body s
-let lex_prefixed_int_head p s l =
+let lex_prefixed_int_head n p s l =
     let open Token.Base in
         match look l 0 with
-            Some c when is_digit c -> l |> lex_int_body p (of_digit c) Bytes.empty s
+            Some c when is_digit c -> l |> lex_int_body n p (of_digit c) Bytes.empty s
             | _ -> l |> lex_mal_int_body s
+let lex_int_prefix_body n s l =
+    let open Token.Base in
+        match look l 0 with
+            Some c when is_base c -> advance l 1 |> lex_prefixed_int_head n (Some (of_char c)) s
+            | _ -> l |> lex_int_body n None Decimal Bytes.empty s
 let rec lex_forbidden_ident_body s l =
     match look l 0 with
         Some c when is_implicit_break c -> l |> push (Token.Forbidden_identifier (from s l.offset l.source))
@@ -231,11 +252,13 @@ let lex_token l =
                 (* STRINGS *)
                 | Some '"' -> advance l 1 |> lex_str_body Bytes.empty l.offset
                 (* INTEGERS *)
-                | Some '0' -> begin match look l 1 with
-                    Some c when Base.is_base c -> advance l 2 |> lex_prefixed_int_head (Some (Base.of_char c)) l.offset
-                    | _ -> l |> lex_int_body None Decimal Bytes.empty l.offset
+                | Some c when Sign.is_sign c -> begin match look l 1 with
+                    Some '0' -> advance l 1 |> lex_int_prefix_body (Sign.of_char c) l.offset
+                    | Some c when Base.is_digit_of c Decimal -> l |> lex_int_body (Sign.of_char c) None Decimal Bytes.empty l.offset
+                    | _ -> l |> lex_ident_body Bytes.empty l.offset
                 end
-                | Some c when Base.is_digit_of c Decimal -> l |> lex_int_body None Decimal Bytes.empty l.offset
+                | Some '0' -> advance l 1 |> lex_int_prefix_body Sign.Positive l.offset
+                | Some c when Base.is_digit_of c Decimal -> l |> lex_int_body Sign.Positive None Decimal Bytes.empty l.offset
                 (* IDENTIFIERS *)
                 | Some 'i' -> begin match look l 1 with
                     Some '"' -> advance l 2 |> lex_special_ident_body Bytes.empty l.offset
