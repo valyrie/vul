@@ -91,9 +91,9 @@ let tell_of l n =
 let is_iws c =
     c = ' ' || c = '\t'
 let is_implicit_break c =
-    is_iws c || c = '\n' || c = '(' || c = ')'
+    is_iws c || c = '\n' || c = ')'
 let is_forbidden_sigil c =
-    c = '"' || c = '\'' 
+    c = '"' || c = '\''  || c = '('
 let rec skip_iws l =
     match look l 0 with
         Some c when is_iws c -> advance l 1 |> skip_iws
