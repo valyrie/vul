@@ -136,6 +136,18 @@ let rec lex_slrem_body l =
         end
         | None -> l
         | _ -> advance l 1 |> lex_slrem_body
+let rec sublex_hexadecimal s l =
+    let open Token.Base in
+        if String.length s < 1 then
+            match look l 1 with
+                Some c when is_digit_of c Hexadecimal -> sublex_hexadecimal (String.concat "" [s; String.make 1 c]) (advance l 1)
+                | _ -> l, None
+        else if String.length s < 2 then
+            match look l 1 with
+                Some c when is_digit_of c Hexadecimal -> sublex_hexadecimal (String.concat "" [s; String.make 1 c]) (advance l 1)
+                | _ -> advance l 1, Some (Char.chr (int_of_string (String.concat "" ["0x" ;s])))
+        else
+            advance l 1, Some (Char.chr (int_of_string (String.concat "" ["0x" ;s])))
 let sublex_escape_body l =
     match look l 0 with
         Some '"' -> advance l 1, Some '"'
@@ -144,6 +156,8 @@ let sublex_escape_body l =
         | Some 'r' -> advance l 1, Some '\r'
         | Some 't' -> advance l 1, Some '\t'
         | Some 'b' -> advance l 1, Some '\b'
+        | Some '0' -> advance l 1, Some '\000'
+        | Some 'x' -> l |> sublex_hexadecimal ""
         | None -> l, None
         | Some _ -> l, None
 let rec lex_unknown_escape_str_body b s l =
@@ -155,15 +169,15 @@ let rec lex_unknown_escape_str_body b s l =
         end
         | None -> l |> push (Token.Unclosed_string_body (from s l.offset l.source))
         | Some c -> advance l 1 |> lex_unknown_escape_str_body (Bytes.cat b (bytes_of_char c)) s
-let rec lex_str_body b s l =
+let rec lex_str_body raw b s l =
     match look l 0 with
         Some '"' -> advance l 1 |> push (Token.String (b, from s (l.offset + 1) l.source))
-        | Some '\\' -> begin match advance l 1 |> sublex_escape_body with
-            sl, Some ch -> sl |> lex_str_body (Bytes.cat b (bytes_of_char ch)) s
+        | Some '\\' when not raw -> begin match advance l 1 |> sublex_escape_body with
+            sl, Some ch -> sl |> lex_str_body raw (Bytes.cat b (bytes_of_char ch)) s
             | _, None -> lex_unknown_escape_str_body b s l
         end
         | None -> l |> push (Token.Unclosed_string_body (from s l.offset l.source))
-        | Some c -> advance l 1 |> lex_str_body (Bytes.cat b (bytes_of_char c)) s
+        | Some c -> advance l 1 |> lex_str_body raw (Bytes.cat b (bytes_of_char c)) s
 let rec lex_mal_int_body s l =
     match look l 0 with
         Some c when is_implicit_break c -> l |> push (Token.Malformed_integer (from s l.offset l.source))
@@ -250,7 +264,11 @@ let lex_token l =
                     | _ -> advance l 1 |> lex_slrem_body
                 end
                 (* STRINGS *)
-                | Some '"' -> advance l 1 |> lex_str_body Bytes.empty l.offset
+                | Some 'r' -> begin match look l 1 with
+                    Some '"' -> advance l 2 |> lex_str_body true Bytes.empty l.offset
+                    | _ -> advance l 1 |> lex_ident_body (bytes_of_char 'r') l.offset
+                end
+                | Some '"' -> advance l 1 |> lex_str_body false Bytes.empty l.offset
                 (* INTEGERS *)
                 | Some c when Sign.is_sign c -> begin match look l 1 with
                     Some '0' -> advance l 1 |> lex_int_prefix_body (Sign.of_char c) l.offset
