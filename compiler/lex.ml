@@ -106,8 +106,10 @@ let tell_of l n =
     l.offset + n
 let is_iws c =
     c = ' ' || c = '\t'
+let is_bad_ident_break c =
+    is_iws c || c = '\n'
 let is_implicit_break c =
-    is_iws c || c = '\n' || c = ')'
+    is_bad_ident_break c || c = ')'
 let is_forbidden_sigil c =
     c = '"' || c = '\''  || c = '('
 let rec skip_iws l =
@@ -217,7 +219,7 @@ let lex_int_prefix_body n s l =
             | _ -> l |> lex_int_body n None Decimal Bytes.empty s
 let rec lex_forbidden_ident_body s l =
     match look l 0 with
-        Some c when is_implicit_break c -> l |> push (Token.Forbidden_identifier (from s l.offset l.source))
+        Some c when is_bad_ident_break c -> l |> push (Token.Forbidden_identifier (from s l.offset l.source))
         | None -> l |> push (Token.Forbidden_identifier (from s l.offset l.source))
         | Some _ -> advance l 1 |> lex_forbidden_ident_body s
 let rec lex_ident_body b s l =
@@ -250,7 +252,11 @@ let lex_token l =
             match look l 0 with
                 (* SIGILS *)
                 | Some '(' -> advance l 1 |> push (Token.L_parenthesis (from l.offset (l.offset + 1) l.source))
-                | Some ')' -> advance l 1 |> push (Token.R_parenthesis (from l.offset (l.offset + 1) l.source))
+                | Some ')' -> begin match look l 1 with
+                    Some c when is_implicit_break c -> advance l 1 |> push (Token.R_parenthesis (from l.offset (l.offset + 1) l.source))
+                    | None -> advance l 1 |> push (Token.R_parenthesis (from l.offset (l.offset + 1) l.source))
+                    | Some _ -> l |> lex_forbidden_ident_body l.offset
+                end
                 | Some '\'' -> advance l 1 |> push (Token.Quote (from l.offset (l.offset + 1) l.source))
                 | None -> advance l 1 |> push (Token.R_parenthesis (from l.offset l.offset l.source))
                 (* EOL *)
