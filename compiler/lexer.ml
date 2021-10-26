@@ -1,4 +1,5 @@
 (* lex source files *)
+
 type 'a t = {v: 'a list; offset: int; source: File.Source.t}
 let bytes_of_chars l =
     Bytes.init (List.length l) (List.nth l)
