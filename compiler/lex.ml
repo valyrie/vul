@@ -45,8 +45,16 @@ let is_bin_digit c =
     c = '0' || c = '1'
 let is_oct_digit c =
     is_bin_digit c || c = '2' || c = '3' || c = '4' || c = '5' || c = '6' || c = '7'
-let is_digit c =
+let is_dec_digit c =
     is_oct_digit c || c = '8' || c = '9'
+let is_hex_digit c =
+    is_dec_digit c
+    || c = 'a' || c = 'A'
+    || c = 'b' || c = 'B'
+    || c = 'c' || c = 'C'
+    || c = 'd' || c = 'D'
+    || c = 'e' || c = 'E'
+    || c = 'f' || c = 'F'
 let rec skip_iws l =
     match look l 0 with
         Some c when is_iws c -> advance l 1 |> skip_iws
@@ -122,21 +130,15 @@ let rec lex_octint_body b s l =
         | Some _ -> l |> lex_mal_int_body s
 let rec lex_decint_body b s l =
     match look l 0 with
-        Some c when is_digit c -> advance l 1 |> lex_decint_body (Bytes.cat b (bytes_of_char c)) s
+        Some c when is_dec_digit c -> advance l 1 |> lex_decint_body (Bytes.cat b (bytes_of_char c)) s
         | Some '_' -> advance l 1 |> lex_decint_body b s
         | Some c when is_implicit_break c -> l |> push (Token.Decimal_integer (b, s, l.offset))
         | None -> l |> push (Token.Decimal_integer (b, s, l.offset))
         | Some _ -> l |> lex_mal_int_body s
 let rec lex_hexint_body b s l =
     match look l 0 with
-        Some c when is_digit c -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char c)) s
+        Some c when is_hex_digit c -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char c)) s
         | Some '_' -> advance l 1 |> lex_hexint_body b s
-        | Some ('a' | 'A') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'A')) s
-        | Some ('b' | 'B') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'B')) s
-        | Some ('c' | 'C') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'C')) s
-        | Some ('d' | 'D') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'D')) s
-        | Some ('e' | 'E') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'E')) s
-        | Some ('f' | 'F') -> advance l 1 |> lex_hexint_body (Bytes.cat b (bytes_of_char 'F')) s
         | Some c when is_implicit_break c -> l |> push (Token.Hexadecimal_integer (b, s, l.offset))
         | None -> l |> push (Token.Hexadecimal_integer (b, s, l.offset))
         | Some _ -> l |> lex_mal_int_body s
@@ -179,18 +181,11 @@ let lex_prefixed_octint_head s l =
         | _ -> l |> lex_mal_int_body s
 let lex_prefixed_decint_head s l =
     match look l 0 with
-        Some c when is_digit c -> l |> lex_decint_body Bytes.empty s
+        Some c when is_dec_digit c -> l |> lex_decint_body Bytes.empty s
         | _ -> l |> lex_mal_int_body s
 let lex_prefixed_hexint_head s l =
     match look l 0 with
-        Some c when is_digit c -> l |> lex_hexint_body Bytes.empty s
-        | Some (
-            'a' | 'A'
-            | 'b' | 'B'
-            | 'c' | 'C'
-            | 'd' | 'D'
-            | 'e' | 'E'
-            | 'f' | 'F') -> l |> lex_hexint_body Bytes.empty s
+        Some c when is_hex_digit c -> l |> lex_hexint_body Bytes.empty s
         | _ -> l |> lex_mal_int_body s
 let lex_token l =
     let l = skip_iws l in
@@ -218,10 +213,10 @@ let lex_token l =
                 | Some ('o' | 'O' | 'q' | 'Q') -> advance l 2 |> lex_prefixed_octint_head l.offset
                 | Some ('d' | 'D' | 't' | 'T') -> advance l 2 |> lex_prefixed_decint_head l.offset
                 | Some ('h' | 'H' | 'x' | 'X') -> advance l 2 |> lex_prefixed_hexint_head l.offset
-                | Some c when is_digit c -> l |> lex_decint_body Bytes.empty l.offset
+                | Some c when is_dec_digit c -> l |> lex_decint_body Bytes.empty l.offset
                 | _ -> l |> lex_decint_body Bytes.empty l.offset
             end
-            | Some c when is_digit c -> l |> lex_decint_body Bytes.empty l.offset
+            | Some c when is_dec_digit c -> l |> lex_decint_body Bytes.empty l.offset
             (* IDENTIFIERS *)
             | Some 'i' -> begin match look l 1 with
                 Some '"' -> advance l 2 |> lex_special_ident_body Bytes.empty l.offset
