@@ -198,7 +198,7 @@ let rec lex_unknown_escape_str_body s l =
             sl, _ -> sl |> lex_unknown_escape_str_body s
         end
         | None -> l |> push (Token.Unclosed_string_literal {from = from s l.offset l.source})
-        | Some c -> advance l 1 |> lex_unknown_escape_str_body  s
+        | Some _ -> advance l 1 |> lex_unknown_escape_str_body  s
 let rec lex_str_body raw b s l =
     match look l 0 with
         Some '"' -> advance l 1 |> push (Token.String_literal {bytes = b; from = from s (l.offset + 1) l.source})
@@ -263,7 +263,7 @@ let rec lex_unknown_escape_special_ident_body s l =
             sl, _ -> sl |> lex_unknown_escape_special_ident_body s
         end
         | None -> l |> push (Token.Unclosed_identifier {from = from s l.offset l.source})
-        | Some c -> advance l 1 |> lex_unknown_escape_special_ident_body s
+        | Some _ -> advance l 1 |> lex_unknown_escape_special_ident_body s
 let rec lex_special_ident_body b s l =
     match look l 0 with
         Some '"' -> advance l 1 |> push (Token.Identifier {bytes = b; from = from s (l.offset + 1) l.source})
