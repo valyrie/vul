@@ -187,6 +187,29 @@ let rec lex_special_ident_body b s l =
         end
         | None -> l |> push (Token.Unclosed_identifier_body (s, l.offset))
         | Some c -> advance l 1 |> lex_special_ident_body (Bytes.cat b (bytes_of_char c)) s
+let lex_prefixed_binint_head s l =
+    match look l 0 with
+        Some c when is_bin_digit c -> l |> lex_binint_body Bytes.empty s
+        | _ -> l |> lex_mal_binint_body s
+let lex_prefixed_octint_head s l =
+    match look l 0 with
+        Some c when is_oct_digit c -> l |> lex_octint_body Bytes.empty s
+        | _ -> l |> lex_mal_octint_body s
+let lex_prefixed_decint_head s l =
+    match look l 0 with
+        Some c when is_digit c -> l |> lex_decint_body Bytes.empty s
+        | _ -> l |> lex_mal_decint_body s
+let lex_prefixed_hexint_head s l =
+    match look l 0 with
+        Some c when is_digit c -> l |> lex_hexint_body Bytes.empty s
+        | Some (
+            'a' | 'A'
+            | 'b' | 'B'
+            | 'c' | 'C'
+            | 'd' | 'D'
+            | 'e' | 'E'
+            | 'f' | 'F') -> l |> lex_hexint_body Bytes.empty s
+        | _ -> l |> lex_mal_hexint_body s
 let lex_token l =
     let l = skip_iws l in
         match look l 0 with
@@ -209,10 +232,10 @@ let lex_token l =
             | Some '"' -> advance l 1 |> lex_str_body Bytes.empty l.offset
             (* INTEGERS *)
             | Some '0' -> begin match look l 1 with
-                Some ('b' | 'B' | 'y' | 'Y') -> advance l 2 |> lex_binint_body Bytes.empty l.offset
-                | Some ('o' | 'O' | 'q' | 'Q') -> advance l 2 |> lex_octint_body Bytes.empty l.offset
-                | Some ('d' | 'D' | 't' | 'T') -> advance l 2 |> lex_decint_body Bytes.empty l.offset
-                | Some ('h' | 'H' | 'x' | 'X') -> advance l 2 |> lex_hexint_body Bytes.empty l.offset
+                Some ('b' | 'B' | 'y' | 'Y') -> advance l 2 |> lex_prefixed_binint_head l.offset
+                | Some ('o' | 'O' | 'q' | 'Q') -> advance l 2 |> lex_prefixed_octint_head l.offset
+                | Some ('d' | 'D' | 't' | 'T') -> advance l 2 |> lex_prefixed_decint_head l.offset
+                | Some ('h' | 'H' | 'x' | 'X') -> advance l 2 |> lex_prefixed_hexint_head l.offset
                 | Some c when is_digit c -> l |> lex_decint_body Bytes.empty l.offset
                 | _ -> l |> lex_decint_body Bytes.empty l.offset
             end
