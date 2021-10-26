@@ -153,7 +153,7 @@ let rec sublex_octal s o l =
                 if code <= 0xFF then
                     advance l 1, Some (Char.chr code)
                 else
-                    o, None
+                    l, Some (Char.chr (int_of_string (String.concat "" ["0o"; (String.sub s 1 (String.length s - 1))])))
 let rec sublex_hexadecimal s l =
     let open Token.Base in
         if String.length s < 1 then
