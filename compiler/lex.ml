@@ -34,6 +34,7 @@ module Token = struct
         | Identifier of bytes * int * int
         | Unknown_escape_identifier of bytes * int * int
         | Unclosed_identifier_body of int * int
+        | Wildcard_identifier of int * int
 end
 let of_source s =
     {v = [Token.L_parenthesis (0, 0)]; offset = 0; source = s}
@@ -220,5 +221,9 @@ let lex_token l =
             | Some 'i' -> begin match look l 1 with
                 Some '"' -> advance l 2 |> lex_special_ident_body Bytes.empty l.offset
                 | _ -> advance l 1 |> lex_ident_body (bytes_of_char 'i') l.offset
+            end
+            | Some '_' -> begin match look l 1 with
+                Some c when is_implicit_break c -> advance l 1 |> push (Token.Wildcard_identifier (l.offset, l.offset + 1))
+                | _ -> advance l 1 |> lex_ident_body (bytes_of_char '_') l.offset
             end
             | Some c -> advance l 1 |> lex_ident_body (bytes_of_char c) l.offset
