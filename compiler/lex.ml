@@ -1,6 +1,4 @@
 (* lex source files *)
-type lexpos =
-{offset: int; stop: int}
 type 'a t = {v: 'a list; offset: int; source: File.Source.t}
 let bytes_of_chars l =
     Bytes.init (List.length l) (List.nth l)
@@ -79,27 +77,42 @@ module Token = struct
                 Some b -> b
                 | None -> raise (Invalid_argument "unknown sign")
     end
+    type left_parenthesis = {from: from}
+    type right_parenthesis = {from: from}
+    type quote = {from: from}
+    type end_of_line = {from: from}
+    type unclosed_block_remark = {from: from}
+    type string_literal = {bytes: bytes; from: from}
+    type unknown_escape_string_literal = {from: from}
+    type unclosed_string_literal = {from: from}
+    type integer_literal = {sign: Sign.t; digits: bytes; base: Base.t; from: from}
+    type malformed_integer_literal = {from: from}
+    type forbidden_identifier = {from: from}
+    type identifier = {bytes: bytes; from: from}
+    type unknown_escape_identifier = {from: from}
+    type unclosed_identifier = {from: from}
+    type wildcard_identifier = {from: from}
     type t =
-        L_parenthesis of from
-        | R_parenthesis of from
-        | Quote of from
-        | Eol of from
-        | Unclosed_mlrem_body of from
-        | Unknown_escape_string of bytes * from
-        | String of bytes * from
-        | Unclosed_string_body of from
-        | Forbidden_identifier of from
-        | Integer of Sign.t * bytes * Base.t * from
-        | Malformed_integer of from
-        | Identifier of bytes * from
-        | Unknown_escape_identifier of bytes * from
-        | Unclosed_identifier_body of from
-        | Wildcard_identifier of from
+        Left_parenthesis of left_parenthesis
+        | Right_parenthesis of right_parenthesis
+        | Quote of quote
+        | End_of_line of end_of_line
+        | Unclosed_block_remark of unclosed_block_remark
+        | String_literal of string_literal
+        | Unknown_escape_string_literal of unknown_escape_string_literal
+        | Unclosed_string_literal of unclosed_string_literal
+        | Forbidden_identifier of forbidden_identifier
+        | Integer_literal of integer_literal
+        | Malformed_integer_literal of malformed_integer_literal
+        | Identifier of identifier
+        | Unknown_escape_identifier of unknown_escape_identifier
+        | Unclosed_identifier of unclosed_identifier
+        | Wildcard_identifier of wildcard_identifier
 end
 let from offset stop source: Token.from =
     {offset = offset; stop = stop; source = source}
 let of_source s =
-    {v = [Token.L_parenthesis (from 0 0 s)]; offset = 0; source = s}
+    {v = [Token.Left_parenthesis {from = from 0 0 s}]; offset = 0; source = s}
 let tell l =
     l.offset
 let tell_of l n =
@@ -127,7 +140,7 @@ let rec lex_mlrem_body s l =
             | Some '[' -> advance l 2 |> lex_mlrem_body (l.offset) |> lex_mlrem_body s
             | _ -> advance l 1 |> lex_mlrem_body s
         end
-        | None -> l |> push (Token.Unclosed_mlrem_body (from s l.offset l.source))
+        | None -> l |> push (Token.Unclosed_block_remark {from = from s l.offset l.source})
         | _ -> advance l 1 |> lex_mlrem_body s
 let rec lex_slrem_body l =
     match look l 0 with
@@ -138,15 +151,15 @@ let rec lex_slrem_body l =
         end
         | None -> l
         | _ -> advance l 1 |> lex_slrem_body
-let rec sublex_octal s o l =
+let rec sublex_octal s l =
     let open Token.Base in
         if String.length s < 1 then
             match look l 1 with
-                Some c when is_digit_of c Octal -> advance l 1 |> sublex_octal (String.concat "" [s; String.make 1 c]) o
+                Some c when is_digit_of c Octal -> advance l 1 |> sublex_octal (String.concat "" [s; String.make 1 c])
                 | _ -> l, None
         else if String.length s < 3 then
             match look l 1 with
-                Some c when is_digit_of c Octal -> advance l 1 |> sublex_octal (String.concat "" [s; String.make 1 c]) o
+                Some c when is_digit_of c Octal -> advance l 1 |> sublex_octal (String.concat "" [s; String.make 1 c])
                 | _ -> advance l 1, Some (Char.chr (int_of_string (String.concat "" ["0o" ;s])))
         else
             let code = int_of_string (String.concat "" ["0o" ;s]) in
@@ -174,40 +187,39 @@ let sublex_escape_body l =
         | Some 'r' -> advance l 1, Some '\r'
         | Some 't' -> advance l 1, Some '\t'
         | Some 'b' -> advance l 1, Some '\b'
-        | Some 'o' -> l |> sublex_octal "" l
+        | Some 'o' -> l |> sublex_octal ""
         | Some 'x' -> l |> sublex_hexadecimal ""
         | None -> l, None
         | Some _ -> l, None
-let rec lex_unknown_escape_str_body b s l =
+let rec lex_unknown_escape_str_body s l =
     match look l 0 with
-        Some '"' -> advance l 1 |> push (Token.Unknown_escape_string (b, from s l.offset l.source))
+        Some '"' -> advance l 1 |> push (Token.Unknown_escape_string_literal {from = from s l.offset l.source})
         | Some '\\' -> begin match advance l 1 |> sublex_escape_body with
-            sl, Some ch -> sl |> lex_unknown_escape_str_body (Bytes.cat b (bytes_of_char ch)) s
-            | sl, None -> lex_unknown_escape_str_body (Bytes.cat b (bytes_of_char '\\')) s sl
+            sl, _ -> sl |> lex_unknown_escape_str_body s
         end
-        | None -> l |> push (Token.Unclosed_string_body (from s l.offset l.source))
-        | Some c -> advance l 1 |> lex_unknown_escape_str_body (Bytes.cat b (bytes_of_char c)) s
+        | None -> l |> push (Token.Unclosed_string_literal {from = from s l.offset l.source})
+        | Some c -> advance l 1 |> lex_unknown_escape_str_body  s
 let rec lex_str_body raw b s l =
     match look l 0 with
-        Some '"' -> advance l 1 |> push (Token.String (b, from s (l.offset + 1) l.source))
+        Some '"' -> advance l 1 |> push (Token.String_literal {bytes = b; from = from s (l.offset + 1) l.source})
         | Some '\\' when not raw -> begin match advance l 1 |> sublex_escape_body with
             sl, Some ch -> sl |> lex_str_body raw (Bytes.cat b (bytes_of_char ch)) s
-            | _, None -> lex_unknown_escape_str_body b s l
+            | _, None -> lex_unknown_escape_str_body s l
         end
-        | None -> l |> push (Token.Unclosed_string_body (from s l.offset l.source))
+        | None -> l |> push (Token.Unclosed_string_literal {from = from s l.offset l.source})
         | Some c -> advance l 1 |> lex_str_body raw (Bytes.cat b (bytes_of_char c)) s
 let rec lex_mal_int_body s l =
     match look l 0 with
-        Some c when is_implicit_break c -> l |> push (Token.Malformed_integer (from s l.offset l.source))
-        | None -> l |> push (Token.Malformed_integer (from s l.offset l.source))
+        Some c when is_implicit_break c -> l |> push (Token.Malformed_integer_literal {from = from s l.offset l.source})
+        | None -> l |> push (Token.Malformed_integer_literal {from = from s l.offset l.source})
         | Some _ -> advance l 1 |> lex_mal_int_body s
 let produce_integer n p e b s l =
     match p with
-        None -> l |> push (Token.Integer (n, b, e, from s l.offset l.source))
+        None -> l |> push (Token.Integer_literal {sign = n; digits = b; base = e; from = from s l.offset l.source})
         | Some prefix -> if Token.Base.within e prefix then
-                l |> push (Token.Integer (n, b, prefix, from s l.offset l.source))
+                l |> push (Token.Integer_literal {sign = n; digits = b; base = prefix; from = from s l.offset l.source})
             else
-                l |> push (Token.Malformed_integer (from s l.offset l.source))
+                l |> push (Token.Malformed_integer_literal {from = from s l.offset l.source})
 let rec lex_int_body n p e b s l =
     let open Token.Base in
         match look l 0 with
@@ -235,50 +247,49 @@ let lex_int_prefix_body n s l =
             | _ -> l |> lex_int_body n None Decimal Bytes.empty s
 let rec lex_forbidden_ident_body s l =
     match look l 0 with
-        Some c when is_bad_ident_break c -> l |> push (Token.Forbidden_identifier (from s l.offset l.source))
-        | None -> l |> push (Token.Forbidden_identifier (from s l.offset l.source))
+        Some c when is_bad_ident_break c -> l |> push (Token.Forbidden_identifier {from = from s l.offset l.source})
+        | None -> l |> push (Token.Forbidden_identifier {from = from s l.offset l.source})
         | Some _ -> advance l 1 |> lex_forbidden_ident_body s
 let rec lex_ident_body b s l =
     match look l 0 with
-        Some c when is_implicit_break c -> l |> push (Token.Identifier (b, from s l.offset l.source))
+        Some c when is_implicit_break c -> l |> push (Token.Identifier {bytes = b; from = from s l.offset l.source})
         | Some c when is_forbidden_sigil c -> l |> lex_forbidden_ident_body s
-        | None -> l |> push (Token.Identifier (b, from s l.offset l.source))
+        | None -> l |> push (Token.Identifier {bytes = b; from = from s l.offset l.source})
         | Some c -> advance l 1 |> lex_ident_body (Bytes.cat b (bytes_of_char c)) s
-let rec lex_unknown_escape_special_ident_body b s l =
+let rec lex_unknown_escape_special_ident_body s l =
     match look l 0 with
-        Some '"' -> advance l 1 |> push (Token.Unknown_escape_identifier (b, from s l.offset l.source))
+        Some '"' -> advance l 1 |> push (Token.Unknown_escape_identifier {from = from s l.offset l.source})
         | Some '\\' -> begin match advance l 1 |> sublex_escape_body with
-            sl, Some ch -> sl |> lex_unknown_escape_special_ident_body (Bytes.cat b (bytes_of_char ch)) s
-            | sl, None -> lex_unknown_escape_special_ident_body (Bytes.cat b (bytes_of_char '\\')) s sl
+            sl, _ -> sl |> lex_unknown_escape_special_ident_body s
         end
-        | None -> l |> push (Token.Unclosed_identifier_body (from s l.offset l.source))
-        | Some c -> advance l 1 |> lex_unknown_escape_special_ident_body (Bytes.cat b (bytes_of_char c)) s
+        | None -> l |> push (Token.Unclosed_identifier {from = from s l.offset l.source})
+        | Some c -> advance l 1 |> lex_unknown_escape_special_ident_body s
 let rec lex_special_ident_body b s l =
     match look l 0 with
-        Some '"' -> advance l 1 |> push (Token.Identifier (b, from s (l.offset + 1) l.source))
+        Some '"' -> advance l 1 |> push (Token.Identifier {bytes = b; from = from s (l.offset + 1) l.source})
         | Some '\\' -> begin match advance l 1 |> sublex_escape_body with
             sl, Some ch -> sl |> lex_special_ident_body (Bytes.cat b (bytes_of_char ch)) s
-            | _, None -> lex_unknown_escape_special_ident_body b s l
+            | _, None -> lex_unknown_escape_special_ident_body s l
         end
-        | None -> l |> push (Token.Unclosed_identifier_body (from s l.offset l.source))
+        | None -> l |> push (Token.Unclosed_identifier {from = from s l.offset l.source})
         | Some c -> advance l 1 |> lex_special_ident_body (Bytes.cat b (bytes_of_char c)) s
 let lex_token l =
     let open Token in
         let l = skip_iws l in
             match look l 0 with
                 (* SIGILS *)
-                | Some '(' -> advance l 1 |> push (Token.L_parenthesis (from l.offset (l.offset + 1) l.source))
+                | Some '(' -> advance l 1 |> push (Token.Left_parenthesis {from = from l.offset (l.offset + 1) l.source})
                 | Some ')' -> begin match look l 1 with
-                    Some c when is_implicit_break c -> advance l 1 |> push (Token.R_parenthesis (from l.offset (l.offset + 1) l.source))
-                    | None -> advance l 1 |> push (Token.R_parenthesis (from l.offset (l.offset + 1) l.source))
+                    Some c when is_implicit_break c -> advance l 1 |> push (Token.Right_parenthesis {from = from l.offset (l.offset + 1) l.source})
+                    | None -> advance l 1 |> push (Token.Right_parenthesis {from = from l.offset (l.offset + 1) l.source})
                     | Some _ -> l |> lex_forbidden_ident_body l.offset
                 end
-                | Some '\'' -> advance l 1 |> push (Token.Quote (from l.offset (l.offset + 1) l.source))
-                | None -> advance l 1 |> push (Token.R_parenthesis (from l.offset l.offset l.source))
+                | Some '\'' -> advance l 1 |> push (Token.Quote {from = from l.offset (l.offset + 1) l.source})
+                | None -> advance l 1 |> push (Token.Right_parenthesis {from = from l.offset l.offset l.source})
                 (* EOL *)
                 | Some '\n' -> begin match look l 1 with
-                    Some '\r' -> advance l 2 |> push (Token.Eol (from l.offset (l.offset + 2) l.source))
-                    | _ -> advance l 1 |> push (Token.Eol (from l.offset (l.offset + 1) l.source))
+                    Some '\r' -> advance l 2 |> push (Token.End_of_line {from = from l.offset (l.offset + 2) l.source})
+                    | _ -> advance l 1 |> push (Token.End_of_line {from = from l.offset (l.offset + 1) l.source})
                 end
                 (* REMARKS *)
                 | Some '#' -> begin match look l 1 with
@@ -305,7 +316,7 @@ let lex_token l =
                     | _ -> advance l 1 |> lex_ident_body (bytes_of_char 'i') l.offset
                 end
                 | Some '_' -> begin match look l 1 with
-                    Some c when is_implicit_break c -> advance l 1 |> push (Token.Wildcard_identifier (from l.offset (l.offset + 1) l.source))
+                    Some c when is_implicit_break c -> advance l 1 |> push (Token.Wildcard_identifier {from = from l.offset (l.offset + 1) l.source})
                     | _ -> advance l 1 |> lex_ident_body (bytes_of_char '_') l.offset
                 end
                 | Some c -> advance l 1 |> lex_ident_body (bytes_of_char c) l.offset
