@@ -31,7 +31,20 @@ module Token = struct
                 | _, Octal -> Octal
                 | _, _ -> Binary
         let within a b =
-            (rebase a b) = b
+            rebase a b = b
+        let of_char_opt c =
+            match c with
+                'b' | 'B' | 'y' | 'Y' -> Some Binary
+                | 'o' | 'O' | 'q' | 'Q' -> Some Octal
+                | 'd' | 'D' | 't' | 'T' -> Some Decimal
+                | 'h' | 'H' | 'x' | 'X' -> Some Hexadecimal
+                | _ -> None
+        let is_base c =
+            of_char_opt c != None
+        let of_char c =
+            match of_char_opt c with
+                Some b -> b
+                | None -> raise (Invalid_argument "unknown base specification")
     end
     type t =
         L_parenthesis of from
@@ -212,10 +225,7 @@ let lex_token l =
             | Some '"' -> advance l 1 |> lex_str_body Bytes.empty l.offset
             (* INTEGERS *)
             | Some '0' -> begin match look l 1 with
-                Some ('b' | 'B' | 'y' | 'Y') -> advance l 2 |> lex_prefixed_int_head (Some Token.Base.Binary) l.offset
-                | Some ('o' | 'O' | 'q' | 'Q') -> advance l 2 |> lex_prefixed_int_head (Some Token.Base.Octal) l.offset
-                | Some ('d' | 'D' | 't' | 'T') -> advance l 2 |> lex_prefixed_int_head (Some Token.Base.Decimal) l.offset
-                | Some ('h' | 'H' | 'x' | 'X') -> advance l 2 |> lex_prefixed_int_head (Some Token.Base.Hexadecimal) l.offset
+                Some c when Token.Base.is_base c -> advance l 2 |> lex_prefixed_int_head (Some (Token.Base.of_char c)) l.offset
                 | _ -> l |> lex_int_body None Token.Base.Decimal Bytes.empty l.offset
             end
             | Some c when is_dec_digit c -> l |> lex_int_body (Some Token.Base.Decimal) Token.Base.Decimal Bytes.empty l.offset
