@@ -157,15 +157,22 @@ let produce_integer p e b s l =
     match p with
         None -> l |> push (Token.Integer (b, e, from s l.offset l.source))
         | Some prefix -> if Token.Base.within e prefix then
-            l |> push (Token.Integer (b, prefix, from s l.offset l.source))
-        else
-            l |> push (Token.Malformed_integer (from s l.offset l.source))
+                l |> push (Token.Integer (b, prefix, from s l.offset l.source))
+            else
+                l |> push (Token.Malformed_integer (from s l.offset l.source))
 let rec lex_int_body p e b s l =
     let open Token.Base in
         match look l 0 with
             Some c when is_digit c -> advance l 1 |> lex_int_body p (rebase e (of_digit c)) (Bytes.cat b (bytes_of_char c)) s
             | Some '_' -> advance l 1 |> lex_int_body p e b s
-            | Some c when is_implicit_break c -> l |> produce_integer p e b s
+            | Some c when is_base c -> if p = None then
+                    advance l 1 |> produce_integer (of_char_opt c) e b s
+                else
+                    l |> lex_mal_int_body s
+            | Some c when is_implicit_break c -> if p = None then
+                    l |> produce_integer (Some Decimal) e b s
+            else
+                    l |> produce_integer p e b s    
             | None -> l |> produce_integer p e b s
             | Some _ -> l |> lex_mal_int_body s
 let lex_prefixed_int_head p s l =
@@ -228,7 +235,7 @@ let lex_token l =
                     Some c when Base.is_base c -> advance l 2 |> lex_prefixed_int_head (Some (Base.of_char c)) l.offset
                     | _ -> l |> lex_int_body None Decimal Bytes.empty l.offset
                 end
-                | Some c when Base.is_digit_of c Decimal -> l |> lex_int_body (Some Decimal) Decimal Bytes.empty l.offset
+                | Some c when Base.is_digit_of c Decimal -> l |> lex_int_body None Decimal Bytes.empty l.offset
                 (* IDENTIFIERS *)
                 | Some 'i' -> begin match look l 1 with
                     Some '"' -> advance l 2 |> lex_special_ident_body Bytes.empty l.offset
