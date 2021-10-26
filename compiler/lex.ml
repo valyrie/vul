@@ -22,7 +22,6 @@ module Token = struct
         | Unknown_escape_string of bytes * int * int
         | String of bytes * int * int
         | Unclosed_string_body of int * int
-        | Identifier of bytes * int * int
         | Forbidden_identifier of int * int
         | Binary_integer of bytes * int * int
         | Malformed_binary_integer of int * int
@@ -32,6 +31,9 @@ module Token = struct
         | Malformed_decimal_integer of int * int
         | Hexadecimal_integer of bytes * int * int
         | Malformed_hexadecimal_integer of int * int
+        | Identifier of bytes * int * int
+        | Unknown_escape_identifier of bytes * int * int
+        | Unclosed_identifier_body of int * int
 end
 let of_source s =
     {v = [Token.L_parenthesis (0, 0)]; offset = 0; source = s}
@@ -166,9 +168,27 @@ let rec lex_ident_body b s l =
         | Some c when is_forbidden_sigil c -> l |> lex_forbidden_ident_body s
         | None -> l |> push (Token.Identifier (b, s, l.offset))
         | Some c -> advance l 1 |> lex_ident_body (Bytes.cat b (bytes_of_char c)) s
+let rec lex_unknown_escape_special_ident_body b s l =
+    match look l 0 with
+        Some '"' -> advance l 1 |> push (Token.Unknown_escape_identifier (b, s, l.offset))
+        | Some '\\' -> begin match advance l 1 |> sublex_escape_body with
+            sl, Some ch -> sl |> lex_unknown_escape_special_ident_body (Bytes.cat b (bytes_of_char ch)) s
+            | sl, None -> lex_unknown_escape_special_ident_body (Bytes.cat b (bytes_of_char '\\')) s sl
+        end
+        | None -> l |> push (Token.Unclosed_identifier_body (s, l.offset))
+        | Some c -> advance l 1 |> lex_unknown_escape_special_ident_body (Bytes.cat b (bytes_of_char c)) s
+let rec lex_special_ident_body b s l =
+    match look l 0 with
+        Some '"' -> advance l 1 |> push (Token.Identifier (b, s, l.offset + 1))
+        | Some '\\' -> begin match advance l 1 |> sublex_escape_body with
+            sl, Some ch -> sl |> lex_special_ident_body (Bytes.cat b (bytes_of_char ch)) s
+            | _, None -> lex_unknown_escape_special_ident_body b s l
+        end
+        | None -> l |> push (Token.Unclosed_identifier_body (s, l.offset))
+        | Some c -> advance l 1 |> lex_special_ident_body (Bytes.cat b (bytes_of_char c)) s
 let lex_token l =
-    let stripped = skip_iws l in
-        match look stripped 0 with
+    let l = skip_iws l in
+        match look l 0 with
             (* SIGILS *)
             | Some '(' -> advance l 1 |> push (Token.L_parenthesis (l.offset, l.offset + 1))
             | Some ')' -> advance l 1 |> push (Token.R_parenthesis (l.offset, l.offset + 1))
@@ -197,4 +217,8 @@ let lex_token l =
             end
             | Some c when is_digit c -> l |> lex_decint_body Bytes.empty l.offset
             (* IDENTIFIERS *)
+            | Some 'i' -> begin match look l 1 with
+                Some '"' -> advance l 2 |> lex_special_ident_body Bytes.empty l.offset
+                | _ -> advance l 1 |> lex_ident_body (bytes_of_char 'i') l.offset
+            end
             | Some c -> advance l 1 |> lex_ident_body (bytes_of_char c) l.offset
