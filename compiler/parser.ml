@@ -71,6 +71,8 @@ module Token = struct
                 Some b -> b
                 | None -> raise (Invalid_argument "unknown sign")
     end
+    type beginning_of_source = {from: From.t}
+    type ending_of_source = {from: From.t}
     type left_parenthesis = {from: From.t}
     type right_parenthesis = {from: From.t}
     type quote = {from: From.t}
@@ -87,7 +89,9 @@ module Token = struct
     type unclosed_identifier = {from: From.t}
     type wildcard_identifier = {from: From.t}
     type t =
-        Left_parenthesis of left_parenthesis
+        Beginning_of_source of beginning_of_source
+        | Ending_of_source of ending_of_source
+        | Left_parenthesis of left_parenthesis
         | Right_parenthesis of right_parenthesis
         | Quote of quote
         | End_of_line of end_of_line
@@ -117,7 +121,7 @@ module Lexer = struct
         {l with v = v :: l.v}
     let from = Token.From.make
     let of_source s =
-        {v = [Token.Left_parenthesis {from = from 0 0 s}]; offset = 0; source = s}
+        {v = [Token.Beginning_of_source {from = from 0 0 s}]; offset = 0; source = s}
     let tell l =
         l.offset
     let tell_of l n =
@@ -129,7 +133,7 @@ module Lexer = struct
     let is_implicit_break c =
         is_bad_ident_break c || c = ')'
     let is_forbidden_sigil c =
-        c = '"' || c = '\''  || c = '('
+        c = '"' || c = '\'' || c = '('
     let rec skip_iws l =
         match look l 0 with
             Some c when is_iws c -> advance l 1 |> skip_iws
@@ -282,6 +286,7 @@ module Lexer = struct
         let open Token in
             let l = skip_iws l in
                 match look l 0 with
+                    None -> advance l 1 |> push (Token.Ending_of_source {from = from l.offset l.offset l.source})
                     (* SIGILS *)
                     | Some '(' -> advance l 1 |> push (Token.Left_parenthesis {from = from l.offset (l.offset + 1) l.source})
                     | Some ')' -> begin match look l 1 with
@@ -290,7 +295,6 @@ module Lexer = struct
                         | Some _ -> l |> lex_forbidden_ident_body l.offset
                     end
                     | Some '\'' -> advance l 1 |> push (Token.Quote {from = from l.offset (l.offset + 1) l.source})
-                    | None -> advance l 1 |> push (Token.Right_parenthesis {from = from l.offset l.offset l.source})
                     (* EOL *)
                     | Some '\n' -> begin match look l 1 with
                         Some '\r' -> advance l 2 |> push (Token.End_of_line {from = from l.offset (l.offset + 2) l.source})
