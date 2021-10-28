@@ -98,6 +98,7 @@ module Token = struct
         type unknown_escape_identifier = {from: From.t}
         type unclosed_identifier = {from: From.t}
         type wildcard_identifier = {from: From.t}
+        type unit = {from: From.t}
         type t =
             | Unclosed_block_remark of unclosed_block_remark
             | String_literal of string_literal
@@ -110,6 +111,7 @@ module Token = struct
             | Unknown_escape_identifier of unknown_escape_identifier
             | Unclosed_identifier of unclosed_identifier
             | Wildcard_identifier of wildcard_identifier
+            | Unit of unit
     end
     type structural_or_atomic =
         Structural of Structural.t
@@ -132,6 +134,7 @@ module Token = struct
         | Unknown_escape_identifier of Atomic.unknown_escape_identifier
         | Unclosed_identifier of Atomic.unclosed_identifier
         | Wildcard_identifier of Atomic.wildcard_identifier
+        | Unit of Atomic.unit
     let to_structural_or_atomic t =
         match t with
             Beginning_of_source s -> Structural (Beginning_of_source s)
@@ -151,6 +154,7 @@ module Token = struct
             | Unknown_escape_identifier a -> Atomic (Unknown_escape_identifier a)
             | Unclosed_identifier a -> Atomic (Unclosed_identifier a)
             | Wildcard_identifier a -> Atomic (Wildcard_identifier a)
+            | Unit a -> Atomic (Unit a)
 end
 module Expr = struct
     type t =
@@ -340,7 +344,10 @@ module Lexer = struct
             match look l 0 with
                 None -> advance l 1 |> push (Ending_of_source {from = from l.offset l.offset l.source})
                 (* SIGILS *)
-                | Some '(' -> advance l 1 |> push (Left_parenthesis {from = from l.offset (l.offset + 1) l.source})
+                | Some '(' -> begin match look l 1 with
+                    | Some ')' -> advance l 2 |> push (Unit {from = from l.offset (l.offset + 1) l.source})
+                    | _ -> advance l 1 |> push (Left_parenthesis {from = from l.offset (l.offset + 1) l.source})
+                end
                 | Some ')' -> begin match look l 1 with
                     Some c when is_implicit_break c -> advance l 1 |> push (Right_parenthesis {from = from l.offset (l.offset + 1) l.source})
                     | None -> advance l 1 |> push (Right_parenthesis {from = from l.offset (l.offset + 1) l.source})
