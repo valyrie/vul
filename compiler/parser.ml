@@ -157,15 +157,21 @@ module Token = struct
             | Unit a -> Atomic (Unit a)
 end
 module Expr = struct
+    open Token
     type t =
-        Atom of Token.Atomic.t
+        Atom of Atomic.t
         | Pair of {left: t; right: t}
-        | Parenthesis of {v: t; left: Token.Structural.left_parenthesis; right: Token.Structural.right_parenthesis}
-        | Source of {v: t; beginning: Token.Structural.beginning_of_source; ending: Token.Structural.ending_of_source}
+        | Parenthesis of {v: t; left: Structural.left_parenthesis; right: Structural.right_parenthesis}
+        | Source of {v: t; beginning: Structural.beginning_of_source; ending: Structural.ending_of_source}
 end
 module Lexer = struct
     open Token
-    type 'a t = {v: 'a list; offset: int; source: File.Source.t}
+    type lex_state =
+        Ready
+        | Lexing
+        | Atend
+        | Done
+    type 'a t = {v: 'a list; offset: int; source: File.Source.t; state: lex_state}
     let bytes_of_chars l =
         Bytes.init (List.length l) (List.nth l)
     let bytes_of_char c =
@@ -176,9 +182,11 @@ module Lexer = struct
         {l with offset = l.offset + n}
     let push v l =
         {l with v = v :: l.v}
+    let set_state s l =
+        {l with state = s}
     let from = From.make
     let of_source s =
-        {v = [Beginning_of_source {from = from 0 0 s}]; offset = 0; source = s}
+        {v = []; offset = 0; source = s; state = Ready}
     let tell l =
         l.offset
     let tell_of l n =
@@ -340,52 +348,63 @@ module Lexer = struct
             | None -> l |> push (Unclosed_identifier {from = from s l.offset l.source})
             | Some c -> advance l 1 |> lex_special_ident_body (Bytes.cat b (bytes_of_char c)) s
     let lex_token l =
-        let l = skip_iws l in
-            match look l 0 with
-                None -> advance l 1 |> push (Ending_of_source {from = from l.offset l.offset l.source})
-                (* SIGILS *)
-                | Some '(' -> begin match look l 1 with
-                    | Some ')' -> advance l 2 |> push (Unit {from = from l.offset (l.offset + 1) l.source})
-                    | _ -> advance l 1 |> push (Left_parenthesis {from = from l.offset (l.offset + 1) l.source})
-                end
-                | Some ')' -> begin match look l 1 with
-                    Some c when is_implicit_break c -> advance l 1 |> push (Right_parenthesis {from = from l.offset (l.offset + 1) l.source})
-                    | None -> advance l 1 |> push (Right_parenthesis {from = from l.offset (l.offset + 1) l.source})
-                    | Some _ -> l |> lex_forbidden_ident_body l.offset
-                end
-                | Some '\'' -> advance l 1 |> push (Quote {from = from l.offset (l.offset + 1) l.source})
-                (* EOL *)
-                | Some '\n' -> begin match look l 1 with
-                    Some '\r' -> advance l 2 |> push (End_of_line {from = from l.offset (l.offset + 2) l.source})
-                    | _ -> advance l 1 |> push (End_of_line {from = from l.offset (l.offset + 1) l.source})
-                end
-                (* REMARKS *)
-                | Some '#' -> begin match look l 1 with
-                    Some '[' -> advance l 2 |> lex_mlrem_body l.offset
-                    | _ -> advance l 1 |> lex_slrem_body
-                end
-                (* STRINGS *)
-                | Some 'r' -> begin match look l 1 with
-                    Some '"' -> advance l 2 |> lex_str_body true Bytes.empty l.offset
-                    | _ -> advance l 1 |> lex_ident_body (bytes_of_char 'r') l.offset
-                end
-                | Some '"' -> advance l 1 |> lex_str_body false Bytes.empty l.offset
-                (* INTEGERS *)
-                | Some c when Sign.is_sign c -> begin match look l 1 with
-                    Some '0' -> advance l 1 |> lex_int_prefix_body (Sign.of_char c) l.offset
-                    | Some c when Base.is_digit_of c Decimal -> l |> lex_int_body (Sign.of_char c) None Decimal Bytes.empty l.offset
-                    | _ -> l |> lex_ident_body Bytes.empty l.offset
-                end
-                | Some '0' -> advance l 1 |> lex_int_prefix_body Positive l.offset
-                | Some c when Base.is_digit_of c Decimal -> l |> lex_int_body Positive None Decimal Bytes.empty l.offset
-                (* IDENTIFIERS *)
-                | Some 'i' -> begin match look l 1 with
-                    Some '"' -> advance l 2 |> lex_special_ident_body Bytes.empty l.offset
-                    | _ -> advance l 1 |> lex_ident_body (bytes_of_char 'i') l.offset
-                end
-                | Some '_' -> begin match look l 1 with
-                    Some c when is_implicit_break c -> advance l 1 |> push (Wildcard_identifier {from = from l.offset (l.offset + 1) l.source})
-                    | _ -> advance l 1 |> lex_ident_body (bytes_of_char '_') l.offset
-                end
-                | Some c -> advance l 1 |> lex_ident_body (bytes_of_char c) l.offset
+        match l.state with
+            Done -> l
+            | Ready -> l |> push (Beginning_of_source {from = from l.offset l.offset l.source}) |> set_state Lexing
+            | Atend -> l |> push (Ending_of_source {from = from l.offset l.offset l.source}) |> set_state Done
+            | Lexing -> let l = skip_iws l in
+                match look l 0 with
+                    None -> advance l 1 |> set_state Done
+                    (* SIGILS *)
+                    | Some '(' -> begin match look l 1 with
+                        | Some ')' -> advance l 2 |> push (Unit {from = from l.offset (l.offset + 1) l.source})
+                        | _ -> advance l 1 |> push (Left_parenthesis {from = from l.offset (l.offset + 1) l.source})
+                    end
+                    | Some ')' -> begin match look l 1 with
+                        Some c when is_implicit_break c -> advance l 1 |> push (Right_parenthesis {from = from l.offset (l.offset + 1) l.source})
+                        | None -> advance l 1 |> push (Right_parenthesis {from = from l.offset (l.offset + 1) l.source})
+                        | Some _ -> l |> lex_forbidden_ident_body l.offset
+                    end
+                    | Some '\'' -> advance l 1 |> push (Quote {from = from l.offset (l.offset + 1) l.source})
+                    (* EOL *)
+                    | Some '\n' -> begin match look l 1 with
+                        Some '\r' -> advance l 2 |> push (End_of_line {from = from l.offset (l.offset + 2) l.source})
+                        | _ -> advance l 1 |> push (End_of_line {from = from l.offset (l.offset + 1) l.source})
+                    end
+                    (* REMARKS *)
+                    | Some '#' -> begin match look l 1 with
+                        Some '[' -> advance l 2 |> lex_mlrem_body l.offset
+                        | _ -> advance l 1 |> lex_slrem_body
+                    end
+                    (* STRINGS *)
+                    | Some 'r' -> begin match look l 1 with
+                        Some '"' -> advance l 2 |> lex_str_body true Bytes.empty l.offset
+                        | _ -> advance l 1 |> lex_ident_body (bytes_of_char 'r') l.offset
+                    end
+                    | Some '"' -> advance l 1 |> lex_str_body false Bytes.empty l.offset
+                    (* INTEGERS *)
+                    | Some c when Sign.is_sign c -> begin match look l 1 with
+                        Some '0' -> advance l 1 |> lex_int_prefix_body (Sign.of_char c) l.offset
+                        | Some c when Base.is_digit_of c Decimal -> l |> lex_int_body (Sign.of_char c) None Decimal Bytes.empty l.offset
+                        | _ -> l |> lex_ident_body Bytes.empty l.offset
+                    end
+                    | Some '0' -> advance l 1 |> lex_int_prefix_body Positive l.offset
+                    | Some c when Base.is_digit_of c Decimal -> l |> lex_int_body Positive None Decimal Bytes.empty l.offset
+                    (* IDENTIFIERS *)
+                    | Some 'i' -> begin match look l 1 with
+                        Some '"' -> advance l 2 |> lex_special_ident_body Bytes.empty l.offset
+                        | _ -> advance l 1 |> lex_ident_body (bytes_of_char 'i') l.offset
+                    end
+                    | Some '_' -> begin match look l 1 with
+                        Some c when is_implicit_break c -> advance l 1 |> push (Wildcard_identifier {from = from l.offset (l.offset + 1) l.source})
+                        | _ -> advance l 1 |> lex_ident_body (bytes_of_char '_') l.offset
+                    end
+                    | Some c -> advance l 1 |> lex_ident_body (bytes_of_char c) l.offset
+    let lex_token_rec l =
+        let ln = lex_token l in
+            {ln with v = List.tl ln.v}, to_structural_or_atomic (List.hd ln.v)
 end
+type 'a parser =
+    {lexer: 'a Lexer.t}
+let of_source s =
+    {lexer = Lexer.of_source s}
