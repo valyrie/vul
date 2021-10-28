@@ -71,41 +71,87 @@ module Token = struct
                 Some b -> b
                 | None -> raise (Invalid_argument "unknown sign")
     end
-    type beginning_of_source = {from: From.t}
-    type ending_of_source = {from: From.t}
-    type left_parenthesis = {from: From.t}
-    type right_parenthesis = {from: From.t}
-    type quote = {from: From.t}
-    type end_of_line = {from: From.t}
-    type unclosed_block_remark = {from: From.t}
-    type string_literal = {bytes: bytes; from: From.t}
-    type unknown_escape_string_literal = {from: From.t}
-    type unclosed_string_literal = {from: From.t}
-    type integer_literal = {sign: Sign.t; digits: bytes; base: Base.t; from: From.t}
-    type malformed_integer_literal = {from: From.t}
-    type forbidden_identifier = {from: From.t}
-    type identifier = {bytes: bytes; from: From.t}
-    type unknown_escape_identifier = {from: From.t}
-    type unclosed_identifier = {from: From.t}
-    type wildcard_identifier = {from: From.t}
+    module Structural = struct
+        type beginning_of_source = {from: From.t}
+        type ending_of_source = {from: From.t}
+        type left_parenthesis = {from: From.t}
+        type right_parenthesis = {from: From.t}
+        type quote = {from: From.t}
+        type end_of_line = {from: From.t}
+        type t =
+            Beginning_of_source of beginning_of_source
+            | Ending_of_source of ending_of_source
+            | Left_parenthesis of left_parenthesis
+            | Right_parenthesis of right_parenthesis
+            | Quote of quote
+            | End_of_line of end_of_line
+    end
+    module Atomic = struct
+        type unclosed_block_remark = {from: From.t}
+        type string_literal = {bytes: bytes; from: From.t}
+        type unknown_escape_string_literal = {from: From.t}
+        type unclosed_string_literal = {from: From.t}
+        type integer_literal = {sign: Sign.t; digits: bytes; base: Base.t; from: From.t}
+        type malformed_integer_literal = {from: From.t}
+        type forbidden_identifier = {from: From.t}
+        type identifier = {bytes: bytes; from: From.t}
+        type unknown_escape_identifier = {from: From.t}
+        type unclosed_identifier = {from: From.t}
+        type wildcard_identifier = {from: From.t}
+        type t =
+            | Unclosed_block_remark of unclosed_block_remark
+            | String_literal of string_literal
+            | Unknown_escape_string_literal of unknown_escape_string_literal
+            | Unclosed_string_literal of unclosed_string_literal
+            | Forbidden_identifier of forbidden_identifier
+            | Integer_literal of integer_literal
+            | Malformed_integer_literal of malformed_integer_literal
+            | Identifier of identifier
+            | Unknown_escape_identifier of unknown_escape_identifier
+            | Unclosed_identifier of unclosed_identifier
+            | Wildcard_identifier of wildcard_identifier
+    end
+    type structural_or_atomic =
+        Structural of Structural.t
+        | Atomic of Atomic.t
     type t =
-        Beginning_of_source of beginning_of_source
-        | Ending_of_source of ending_of_source
-        | Left_parenthesis of left_parenthesis
-        | Right_parenthesis of right_parenthesis
-        | Quote of quote
-        | End_of_line of end_of_line
-        | Unclosed_block_remark of unclosed_block_remark
-        | String_literal of string_literal
-        | Unknown_escape_string_literal of unknown_escape_string_literal
-        | Unclosed_string_literal of unclosed_string_literal
-        | Forbidden_identifier of forbidden_identifier
-        | Integer_literal of integer_literal
-        | Malformed_integer_literal of malformed_integer_literal
-        | Identifier of identifier
-        | Unknown_escape_identifier of unknown_escape_identifier
-        | Unclosed_identifier of unclosed_identifier
-        | Wildcard_identifier of wildcard_identifier
+        Beginning_of_source of Structural.beginning_of_source
+        | Ending_of_source of Structural.ending_of_source
+        | Left_parenthesis of Structural.left_parenthesis
+        | Right_parenthesis of Structural.right_parenthesis
+        | Quote of Structural.quote
+        | End_of_line of Structural.end_of_line
+        | Unclosed_block_remark of Atomic.unclosed_block_remark
+        | String_literal of Atomic.string_literal
+        | Unknown_escape_string_literal of Atomic.unknown_escape_string_literal
+        | Unclosed_string_literal of Atomic.unclosed_string_literal
+        | Forbidden_identifier of Atomic.forbidden_identifier
+        | Integer_literal of Atomic.integer_literal
+        | Malformed_integer_literal of Atomic.malformed_integer_literal
+        | Identifier of Atomic.identifier
+        | Unknown_escape_identifier of Atomic.unknown_escape_identifier
+        | Unclosed_identifier of Atomic.unclosed_identifier
+        | Wildcard_identifier of Atomic.wildcard_identifier
+    let to_structural_or_atomic t =
+        match t with
+            Beginning_of_source s -> Structural (Beginning_of_source s)
+            | Ending_of_source s -> Structural (Ending_of_source s)
+            | Left_parenthesis s -> Structural (Left_parenthesis s)
+            | Right_parenthesis s -> Structural (Right_parenthesis s)
+            | Quote s -> Structural (Quote s)
+            | End_of_line s -> Structural (End_of_line s)
+            | Unclosed_block_remark a -> Atomic (Unclosed_block_remark a)
+            | String_literal a -> Atomic (String_literal a)
+            | Unknown_escape_string_literal a -> Atomic (Unknown_escape_string_literal a)
+            | Unclosed_string_literal a -> Atomic (Unclosed_string_literal a)
+            | Forbidden_identifier a -> Atomic (Forbidden_identifier a)
+            | Integer_literal a -> Atomic (Integer_literal a)
+            | Malformed_integer_literal a -> Atomic (Malformed_integer_literal a)
+            | Identifier a -> Atomic (Identifier a)
+            | Unknown_escape_identifier a -> Atomic (Unknown_escape_identifier a)
+            | Unclosed_identifier a -> Atomic (Unclosed_identifier a)
+            | Wildcard_identifier a -> Atomic (Wildcard_identifier a)
+
 end
 module Lexer = struct
     type 'a t = {v: 'a list; offset: int; source: File.Source.t}
