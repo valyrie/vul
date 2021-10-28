@@ -151,7 +151,13 @@ module Token = struct
             | Unknown_escape_identifier a -> Atomic (Unknown_escape_identifier a)
             | Unclosed_identifier a -> Atomic (Unclosed_identifier a)
             | Wildcard_identifier a -> Atomic (Wildcard_identifier a)
-
+end
+module Expr = struct
+    type t =
+        Atom of Token.Atomic.t
+        | Pair of {left: t; right: t}
+        | Parenthesis of {v: t; left: Token.Structural.left_parenthesis; right: Token.Structural.right_parenthesis}
+        | Source of {v: t; beginning: Token.Structural.beginning_of_source; ending: Token.Structural.ending_of_source}
 end
 module Lexer = struct
     open Token
