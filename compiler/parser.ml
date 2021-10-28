@@ -132,7 +132,6 @@ module Lexer = struct
     type lex_state =
         Ready
         | Lexing
-        | Atend
         | Done
     type t = {offset: int; source: File.Source.t; state: lex_state}
     let bytes_of_chars l =
@@ -148,10 +147,6 @@ module Lexer = struct
     let from = From.make
     let of_source s =
         {offset = 0; source = s; state = Ready}
-    let tell l =
-        l.offset
-    let tell_of l n =
-        l.offset + n
     let is_iws c =
         c = ' ' || c = '\t'
     let is_bad_ident_break c =
@@ -312,10 +307,9 @@ module Lexer = struct
         match l.state with
             Done -> l, None
             | Ready -> l |> set_state Lexing, Some (Structural (Beginning_of_source {from = from l.offset l.offset l.source}))
-            | Atend -> l |> set_state Done, Some (Structural (Ending_of_source {from = from l.offset l.offset l.source}))
             | Lexing -> let l = skip_iws l in
                 match look l 0 with
-                    None -> l |> set_state Done |> lex_token
+                    None -> l |> set_state Done, Some (Structural (Ending_of_source {from = from l.offset l.offset l.source}))
                     (* SIGILS *)
                     | Some '(' -> begin match look l 1 with
                         | Some ')' -> advance l 2, Some (Atomic (Unit {from = from l.offset (l.offset + 1) l.source}))
