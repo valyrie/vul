@@ -1,4 +1,4 @@
-(* lex source files *)
+(* parse source files *)
 
 type 'a t = {v: 'a list; offset: int; source: File.Source.t}
 let bytes_of_chars l =
@@ -6,7 +6,7 @@ let bytes_of_chars l =
 let bytes_of_char c =
     Bytes.init 1 (fun _ -> c)
 let look l n =
-    File.Source.read_byte l.source (l.offset + n) 
+    File.Source.read_byte l.source (l.offset + n)
 let advance l n =
     {l with offset = l.offset + n}
 let push v l =
