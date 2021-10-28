@@ -1,132 +1,157 @@
 (* parse source files *)
 
-module Token = struct
-    module From = struct
+module From = struct
+    type t =
+        {offset: int; stop: int; source: File.Source.t}
+    let make offset stop source =
+        {offset = offset; stop = stop; source = source}
+end
+module Base = struct
+    type t =
+        Binary
+        | Octal
+        | Decimal
+        | Hexadecimal
+    let rebase a b =
+        match (a, b) with
+            Hexadecimal, _ -> Hexadecimal
+            | _, Hexadecimal -> Hexadecimal
+            | Decimal, _ -> Decimal
+            | _, Decimal -> Decimal
+            | Octal, _ -> Octal
+            | _, Octal -> Octal
+            | Binary, Binary -> Binary
+    let within a b =
+        rebase a b = b
+    let of_char_opt c =
+        match c with
+            'b' | 'B' | 'y' | 'Y' -> Some Binary
+            | 'o' | 'O' | 'q' | 'Q' -> Some Octal
+            | 'd' | 'D' | 't' | 'T' -> Some Decimal
+            | 'h' | 'H' | 'x' | 'X' -> Some Hexadecimal
+            | _ -> None
+    let is_base c =
+        of_char_opt c != None
+    let of_char c =
+        match of_char_opt c with
+            Some b -> b
+            | None -> raise (Invalid_argument "unknown base")
+    let of_digit_opt c =
+        match c with
+            '0' | '1' -> Some Binary
+            | '2' | '3' | '4'
+            | '5' | '6' | '7' -> Some Octal
+            | '8' | '9' -> Some Decimal
+            | 'a' | 'A' | 'b' | 'B' | 'c' | 'C'
+            | 'd' | 'D' | 'e' | 'E' | 'f' | 'F' -> Some Hexadecimal
+            | _ -> None
+    let of_digit c =
+        match of_digit_opt c with
+            Some b -> b
+            | None -> raise (Invalid_argument "unknown digit")
+    let is_digit_of c b =
+        within (of_digit c) b
+    let is_digit c =
+        is_digit_of c Hexadecimal
+end
+module Sign = struct
+    type t =
+        Negative
+        | Positive
+    let of_char_opt c =
+        match c with
+            '-' -> Some Negative
+            | '+' -> Some Positive
+            | _ -> None
+    let is_sign c =
+        of_char_opt c != None
+    let of_char c =
+        match of_char_opt c with
+            Some b -> b
+            | None -> raise (Invalid_argument "unknown sign")
+end
+module rec Expr: sig
+    module Token: sig
+        module Structural: sig
+            type beginning_of_source = {from: From.t}
+            type ending_of_source = {from: From.t}
+            type left_parenthesis = {from: From.t}
+            type right_parenthesis = {from: From.t}
+            type quote = {from: From.t}
+            type end_of_line = {from: From.t}
+            type t =
+                Beginning_of_source of beginning_of_source
+                | Ending_of_source of ending_of_source
+                | Left_parenthesis of left_parenthesis
+                | Right_parenthesis of right_parenthesis
+                | Quote of quote
+                | End_of_line of end_of_line
+        end
+        module Atomic: sig
+            type unclosed_block_remark = {from: From.t}
+            type string_literal = {bytes: bytes; from: From.t}
+            type unknown_escape_string_literal = {from: From.t}
+            type unclosed_string_literal = {from: From.t}
+            type integer_literal = {sign: Sign.t; digits: bytes; base: Base.t; from: From.t}
+            type malformed_integer_literal = {from: From.t}
+            type forbidden_identifier = {from: From.t}
+            type identifier = {bytes: bytes; from: From.t}
+            type unknown_escape_identifier = {from: From.t}
+            type unclosed_identifier = {from: From.t}
+            type wildcard_identifier = {from: From.t}
+            type unit = {from: From.t}
+            type t =
+                | Unclosed_block_remark of unclosed_block_remark
+                | String_literal of string_literal
+                | Unknown_escape_string_literal of unknown_escape_string_literal
+                | Unclosed_string_literal of unclosed_string_literal
+                | Forbidden_identifier of forbidden_identifier
+                | Integer_literal of integer_literal
+                | Malformed_integer_literal of malformed_integer_literal
+                | Identifier of identifier
+                | Unknown_escape_identifier of unknown_escape_identifier
+                | Unclosed_identifier of unclosed_identifier
+                | Wildcard_identifier of wildcard_identifier
+                | Unit of unit
+        end
         type t =
-            {offset: int; stop: int; source: File.Source.t}
-        let make offset stop source =
-            {offset = offset; stop = stop; source = source}
+            Structural of Structural.t
+            | Atomic of Atomic.t
     end
-    module Base = struct
-        type t =
-            Binary
-            | Octal
-            | Decimal
-            | Hexadecimal
-        let rebase a b =
-            match (a, b) with
-                Hexadecimal, _ -> Hexadecimal
-                | _, Hexadecimal -> Hexadecimal
-                | Decimal, _ -> Decimal
-                | _, Decimal -> Decimal
-                | Octal, _ -> Octal
-                | _, Octal -> Octal
-                | Binary, Binary -> Binary
-        let within a b =
-            rebase a b = b
-        let of_char_opt c =
-            match c with
-                'b' | 'B' | 'y' | 'Y' -> Some Binary
-                | 'o' | 'O' | 'q' | 'Q' -> Some Octal
-                | 'd' | 'D' | 't' | 'T' -> Some Decimal
-                | 'h' | 'H' | 'x' | 'X' -> Some Hexadecimal
-                | _ -> None
-        let is_base c =
-            of_char_opt c != None
-        let of_char c =
-            match of_char_opt c with
-                Some b -> b
-                | None -> raise (Invalid_argument "unknown base")
-        let of_digit_opt c =
-            match c with
-                '0' | '1' -> Some Binary
-                | '2' | '3' | '4'
-                | '5' | '6' | '7' -> Some Octal
-                | '8' | '9' -> Some Decimal
-                | 'a' | 'A' | 'b' | 'B' | 'c' | 'C'
-                | 'd' | 'D' | 'e' | 'E' | 'f' | 'F' -> Some Hexadecimal
-                | _ -> None
-        let of_digit c =
-            match of_digit_opt c with
-                Some b -> b
-                | None -> raise (Invalid_argument "unknown digit")
-        let is_digit_of c b =
-            within (of_digit c) b
-        let is_digit c =
-            is_digit_of c Hexadecimal
-    end
-    module Sign = struct
-        type t =
-            Negative
-            | Positive
-        let of_char_opt c =
-            match c with
-                '-' -> Some Negative
-                | '+' -> Some Positive
-                | _ -> None
-        let is_sign c =
-            of_char_opt c != None
-        let of_char c =
-            match of_char_opt c with
-                Some b -> b
-                | None -> raise (Invalid_argument "unknown sign")
-    end
-    module Structural = struct
-        type beginning_of_source = {from: From.t}
-        type ending_of_source = {from: From.t}
-        type left_parenthesis = {from: From.t}
-        type right_parenthesis = {from: From.t}
-        type quote = {from: From.t}
-        type end_of_line = {from: From.t}
-        type t =
-            Beginning_of_source of beginning_of_source
-            | Ending_of_source of ending_of_source
-            | Left_parenthesis of left_parenthesis
-            | Right_parenthesis of right_parenthesis
-            | Quote of quote
-            | End_of_line of end_of_line
-    end
-    module Atomic = struct
-        type unclosed_block_remark = {from: From.t}
-        type string_literal = {bytes: bytes; from: From.t}
-        type unknown_escape_string_literal = {from: From.t}
-        type unclosed_string_literal = {from: From.t}
-        type integer_literal = {sign: Sign.t; digits: bytes; base: Base.t; from: From.t}
-        type malformed_integer_literal = {from: From.t}
-        type forbidden_identifier = {from: From.t}
-        type identifier = {bytes: bytes; from: From.t}
-        type unknown_escape_identifier = {from: From.t}
-        type unclosed_identifier = {from: From.t}
-        type wildcard_identifier = {from: From.t}
-        type unit = {from: From.t}
-        type t =
-            | Unclosed_block_remark of unclosed_block_remark
-            | String_literal of string_literal
-            | Unknown_escape_string_literal of unknown_escape_string_literal
-            | Unclosed_string_literal of unclosed_string_literal
-            | Forbidden_identifier of forbidden_identifier
-            | Integer_literal of integer_literal
-            | Malformed_integer_literal of malformed_integer_literal
-            | Identifier of identifier
-            | Unknown_escape_identifier of unknown_escape_identifier
-            | Unclosed_identifier of unclosed_identifier
-            | Wildcard_identifier of wildcard_identifier
-            | Unit of unit
+    module Nonterminal: sig
+        type pair = {left: Expr.t; right: Expr.t}
+        type parentheses = {x: Expr.t; left: Token.Structural.left_parenthesis; right: Token.Structural.right_parenthesis}
+        type unclosed_parentheses = {x: Expr.t; left: Token.Structural.left_parenthesis}
+        type quoted = {x: Expr.t; quote: Token.Structural.quote}
+        type orphaned_structural_token = {structural: Token.Structural.t}
+        type source = {x: Expr.t; beginning: Token.Structural.beginning_of_source; ending: Token.Structural.ending_of_source}
     end
     type t =
-        Structural of Structural.t
-        | Atomic of Atomic.t
-end
-module Expr = struct
-    open Token
-    type t =
-        Atom of Atomic.t
-        | Pair of {left: t; right: t}
-        | Parenthesis of {v: t; left: Structural.left_parenthesis; right: Structural.right_parenthesis}
-        | Source of {v: t; beginning: Structural.beginning_of_source; ending: Structural.ending_of_source}
-end
+        (* STRUCTURAL TOKENS *)
+        Structural of Token.Structural.t
+        (* ATOMIC TOKENS *)
+        | Unclosed_block_remark of Token.Atomic.unclosed_block_remark
+        | String_literal of Token.Atomic.string_literal
+        | Unknown_escape_string_literal of Token.Atomic.unknown_escape_string_literal
+        | Unclosed_string_literal of Token.Atomic.unclosed_string_literal
+        | Forbidden_identifier of Token.Atomic.forbidden_identifier
+        | Integer_literal of Token.Atomic.integer_literal
+        | Malformed_integer_literal of Token.Atomic.malformed_integer_literal
+        | Identifier of Token.Atomic.identifier
+        | Unknown_escape_identifier of Token.Atomic.unknown_escape_identifier
+        | Unclosed_identifier of Token.Atomic.unclosed_identifier
+        | Wildcard_identifier of Token.Atomic.wildcard_identifier
+        | Unit of Token.Atomic.unit
+        (* NONTERMINALS *)
+        | Pair of Nonterminal.pair
+        | Parentheses of Nonterminal.parentheses
+        | Unclosed_paretheses of Nonterminal.unclosed_parentheses
+        | Quoted of Nonterminal.quoted
+        | Orphaned_structural_token of Nonterminal.orphaned_structural_token
+        | Source of Nonterminal.source
+end = Expr
 module Lexer = struct
-    open Token
+    open Expr.Token
     open Structural
     open Atomic
     type lex_state =
@@ -303,7 +328,7 @@ module Lexer = struct
             end
             | None -> l, Some (Atomic (Unclosed_identifier {from = from s l.offset l.source}))
             | Some c -> advance l 1 |> lex_special_ident_body (Bytes.cat b (bytes_of_char c)) s
-    let rec lex_token l =
+    let lex_token l =
         match l.state with
             Done -> l, None
             | Ready -> l |> set_state Lexing, Some (Structural (Beginning_of_source {from = from l.offset l.offset l.source}))
@@ -356,7 +381,9 @@ module Lexer = struct
                     end
                     | Some c -> advance l 1 |> lex_ident_body (bytes_of_char c) l.offset
 end
-type parser =
+type t =
     {lexer: Lexer.t}
+let of_lexer l =
+    {lexer = l}
 let of_source s =
-    {lexer = Lexer.of_source s}
+    of_lexer (Lexer.of_source s)
