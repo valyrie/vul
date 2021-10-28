@@ -100,35 +100,19 @@ module rec Expr: sig
             type unclosed_identifier = {from: From.t}
             type wildcard_identifier = {from: From.t}
             type unit = {from: From.t}
-            type t =
-                | Unclosed_block_remark of unclosed_block_remark
-                | String_literal of string_literal
-                | Unknown_escape_string_literal of unknown_escape_string_literal
-                | Unclosed_string_literal of unclosed_string_literal
-                | Forbidden_identifier of forbidden_identifier
-                | Integer_literal of integer_literal
-                | Malformed_integer_literal of malformed_integer_literal
-                | Identifier of identifier
-                | Unknown_escape_identifier of unknown_escape_identifier
-                | Unclosed_identifier of unclosed_identifier
-                | Wildcard_identifier of wildcard_identifier
-                | Unit of unit
         end
-        type t =
-            Structural of Structural.t
-            | Atomic of Atomic.t
     end
     module Nonterminal: sig
         type pair = {left: Expr.t; right: Expr.t}
         type parentheses = {x: Expr.t; left: Token.Structural.left_parenthesis; right: Token.Structural.right_parenthesis}
         type unclosed_parentheses = {x: Expr.t; left: Token.Structural.left_parenthesis}
         type quoted = {x: Expr.t; quote: Token.Structural.quote}
-        type orphaned_structural_token = {structural: Token.Structural.t}
         type source = {x: Expr.t; beginning: Token.Structural.beginning_of_source; ending: Token.Structural.ending_of_source}
     end
     type t =
+        None
         (* STRUCTURAL TOKENS *)
-        Structural of Token.Structural.t
+        | Structural of Token.Structural.t
         (* ATOMIC TOKENS *)
         | Unclosed_block_remark of Token.Atomic.unclosed_block_remark
         | String_literal of Token.Atomic.string_literal
@@ -147,11 +131,11 @@ module rec Expr: sig
         | Parentheses of Nonterminal.parentheses
         | Unclosed_paretheses of Nonterminal.unclosed_parentheses
         | Quoted of Nonterminal.quoted
-        | Orphaned_structural_token of Nonterminal.orphaned_structural_token
         | Source of Nonterminal.source
 end = Expr
 module Lexer = struct
-    open Expr.Token
+    open Expr
+    open Token
     open Structural
     open Atomic
     type lex_state =
@@ -195,7 +179,7 @@ module Lexer = struct
                 | Some '[' -> let (sl, _) = advance l 2 |> lex_mlrem_body (l.offset) in sl |> lex_mlrem_body s
                 | _ -> advance l 1 |> lex_mlrem_body s
             end
-            | None -> l, Some (Atomic (Unclosed_block_remark {from = from s l.offset l.source}))
+            | None -> l, Unclosed_block_remark {from = from s l.offset l.source}
             | _ -> advance l 1 |> lex_mlrem_body s
     let rec lex_slrem_body l =
         match look l 0 with
@@ -207,33 +191,35 @@ module Lexer = struct
             | None -> l, None
             | _ -> advance l 1 |> lex_slrem_body
     let rec sublex_octal s l =
-        let open Base in
-            if String.length s < 1 then
-                match look l 1 with
-                    Some c when is_digit_of c Octal -> advance l 1 |> sublex_octal (String.concat "" [s; String.make 1 c])
-                    | _ -> l, None
-            else if String.length s < 3 then
-                match look l 1 with
-                    Some c when is_digit_of c Octal -> advance l 1 |> sublex_octal (String.concat "" [s; String.make 1 c])
-                    | _ -> advance l 1, Some (Char.chr (int_of_string (String.concat "" ["0o" ;s])))
-            else
-                let code = int_of_string (String.concat "" ["0o" ;s]) in
-                    if code <= 0xFF then
-                        advance l 1, Some (Char.chr code)
-                    else
-                        l, Some (Char.chr (int_of_string (String.concat "" ["0o"; (String.sub s 1 (String.length s - 1))])))
+        let open Option in
+            let open Base in
+                if String.length s < 1 then
+                    match look l 1 with
+                        Some c when is_digit_of c Octal -> advance l 1 |> sublex_octal (String.concat "" [s; String.make 1 c])
+                        | _ -> l, None
+                else if String.length s < 3 then
+                    match look l 1 with
+                        Some c when is_digit_of c Octal -> advance l 1 |> sublex_octal (String.concat "" [s; String.make 1 c])
+                        | _ -> advance l 1, Some (Char.chr (int_of_string (String.concat "" ["0o" ;s])))
+                else
+                    let code = int_of_string (String.concat "" ["0o" ;s]) in
+                        if code <= 0xFF then
+                            advance l 1, Some (Char.chr code)
+                        else
+                            l, Some (Char.chr (int_of_string (String.concat "" ["0o"; (String.sub s 1 (String.length s - 1))])))
     let rec sublex_hexadecimal s l =
-        let open Base in
-            if String.length s < 1 then
-                match look l 1 with
-                    Some c when is_digit_of c Hexadecimal -> sublex_hexadecimal (String.concat "" [s; String.make 1 c]) (advance l 1)
-                    | _ -> l, None
-            else if String.length s < 2 then
-                match look l 1 with
-                    Some c when is_digit_of c Hexadecimal -> sublex_hexadecimal (String.concat "" [s; String.make 1 c]) (advance l 1)
-                    | _ -> advance l 1, Some (Char.chr (int_of_string (String.concat "" ["0x" ;s])))
-            else
-                advance l 1, Some (Char.chr (int_of_string (String.concat "" ["0x" ;s])))
+        let open Option in
+            let open Base in
+                if String.length s < 1 then
+                    match look l 1 with
+                        Some c when is_digit_of c Hexadecimal -> sublex_hexadecimal (String.concat "" [s; String.make 1 c]) (advance l 1)
+                        | _ -> l, None
+                else if String.length s < 2 then
+                    match look l 1 with
+                        Some c when is_digit_of c Hexadecimal -> sublex_hexadecimal (String.concat "" [s; String.make 1 c]) (advance l 1)
+                        | _ -> advance l 1, Some (Char.chr (int_of_string (String.concat "" ["0x" ;s])))
+                else
+                    advance l 1, Some (Char.chr (int_of_string (String.concat "" ["0x" ;s])))
     let sublex_escape_body l =
         match look l 0 with
             Some '"' -> advance l 1, Some '"'
@@ -248,39 +234,40 @@ module Lexer = struct
             | Some _ -> l, None
     let rec lex_unknown_escape_str_body s l =
         match look l 0 with
-            Some '"' -> advance l 1, Some (Atomic (Unknown_escape_string_literal {from = from s l.offset l.source}))
+            Some '"' -> advance l 1, Unknown_escape_string_literal {from = from s l.offset l.source}
             | Some '\\' -> begin match advance l 1 |> sublex_escape_body with
                 sl, _ -> sl |> lex_unknown_escape_str_body s
             end
-            | None -> l, Some (Atomic (Unclosed_string_literal {from = from s l.offset l.source}))
+            | None -> l, Unclosed_string_literal {from = from s l.offset l.source}
             | Some _ -> advance l 1 |> lex_unknown_escape_str_body  s
     let rec lex_str_body raw b s l =
         match look l 0 with
-            Some '"' -> advance l 1, Some (Atomic (String_literal {bytes = b; from = from s (l.offset + 1) l.source}))
+            Some '"' -> advance l 1, String_literal {bytes = b; from = from s (l.offset + 1) l.source}
             | Some '\\' when not raw -> begin match advance l 1 |> sublex_escape_body with
                 sl, Some ch -> sl |> lex_str_body raw (Bytes.cat b (bytes_of_char ch)) s
                 | _, None -> lex_unknown_escape_str_body s l
             end
-            | None -> l, Some (Atomic (Unclosed_string_literal {from = from s l.offset l.source}))
+            | None -> l, Unclosed_string_literal {from = from s l.offset l.source}
             | Some c -> advance l 1 |> lex_str_body raw (Bytes.cat b (bytes_of_char c)) s
     let rec lex_mal_int_body s l =
         match look l 0 with
-            Some c when is_implicit_break c -> l, Some (Atomic (Malformed_integer_literal {from = from s l.offset l.source}))
-            | None -> l, Some (Atomic (Malformed_integer_literal {from = from s l.offset l.source}))
+            Some c when is_implicit_break c -> l, Malformed_integer_literal {from = from s l.offset l.source}
+            | None -> l, Malformed_integer_literal {from = from s l.offset l.source}
             | Some _ -> advance l 1 |> lex_mal_int_body s
     let produce_integer n p e b s l =
-        match p with
-            None -> l, Some (Atomic (Integer_literal {sign = n; digits = b; base = e; from = from s l.offset l.source}))
-            | Some prefix -> if Base.within e prefix then
-                    l, Some (Atomic (Integer_literal {sign = n; digits = b; base = prefix; from = from s l.offset l.source}))
-                else
-                    l, Some (Atomic (Malformed_integer_literal {from = from s l.offset l.source}))
+        let open Option in
+            match p with
+                None -> l, Integer_literal {sign = n; digits = b; base = e; from = from s l.offset l.source}
+                | Some prefix -> if Base.within e prefix then
+                        l, Integer_literal {sign = n; digits = b; base = prefix; from = from s l.offset l.source}
+                    else
+                        l, Malformed_integer_literal {from = from s l.offset l.source}
     let rec lex_int_body n p e b s l =
         let open Base in
             match look l 0 with
                 Some c when is_digit c -> advance l 1 |> lex_int_body n p (rebase e (of_digit c)) (Bytes.cat b (bytes_of_char c)) s
                 | Some '_' -> advance l 1 |> lex_int_body n p e b s
-                | Some c when is_base c -> if p = None then
+                | Some c when is_base c -> if p = Option.None then
                         advance l 1 |> produce_integer n (of_char_opt c) e b s
                     else
                         l |> lex_mal_int_body s
@@ -302,54 +289,54 @@ module Lexer = struct
                 | _ -> l |> lex_int_body n None Decimal Bytes.empty s
     let rec lex_forbidden_ident_body s l =
         match look l 0 with
-            Some c when is_bad_ident_break c -> l, Some (Atomic (Forbidden_identifier {from = from s l.offset l.source}))
-            | None -> l, Some (Atomic (Forbidden_identifier {from = from s l.offset l.source}))
+            Some c when is_bad_ident_break c -> l, Forbidden_identifier {from = from s l.offset l.source}
+            | None -> l, Forbidden_identifier {from = from s l.offset l.source}
             | Some _ -> advance l 1 |> lex_forbidden_ident_body s
     let rec lex_ident_body b s l =
         match look l 0 with
-            Some c when is_implicit_break c -> l, Some (Atomic (Identifier {bytes = b; from = from s l.offset l.source}))
+            Some c when is_implicit_break c -> l, Identifier {bytes = b; from = from s l.offset l.source}
             | Some c when is_forbidden_sigil c -> l |> lex_forbidden_ident_body s
-            | None -> l, Some (Atomic (Identifier {bytes = b; from = from s l.offset l.source}))
+            | None -> l, Identifier {bytes = b; from = from s l.offset l.source}
             | Some c -> advance l 1 |> lex_ident_body (Bytes.cat b (bytes_of_char c)) s
     let rec lex_unknown_escape_special_ident_body s l =
         match look l 0 with
-            Some '"' -> advance l 1, Some (Atomic (Unknown_escape_identifier {from = from s l.offset l.source}))
+            Some '"' -> advance l 1, Unknown_escape_identifier {from = from s l.offset l.source}
             | Some '\\' -> begin match advance l 1 |> sublex_escape_body with
                 sl, _ -> sl |> lex_unknown_escape_special_ident_body s
             end
-            | None -> l, Some (Atomic (Unclosed_identifier {from = from s l.offset l.source}))
+            | None -> l, Unclosed_identifier {from = from s l.offset l.source}
             | Some _ -> advance l 1 |> lex_unknown_escape_special_ident_body s
     let rec lex_special_ident_body b s l =
         match look l 0 with
-            Some '"' -> advance l 1, Some (Atomic (Identifier {bytes = b; from = from s (l.offset + 1) l.source}))
+            Some '"' -> advance l 1, Identifier {bytes = b; from = from s (l.offset + 1) l.source}
             | Some '\\' -> begin match advance l 1 |> sublex_escape_body with
                 sl, Some ch -> sl |> lex_special_ident_body (Bytes.cat b (bytes_of_char ch)) s
                 | _, None -> lex_unknown_escape_special_ident_body s l
             end
-            | None -> l, Some (Atomic (Unclosed_identifier {from = from s l.offset l.source}))
+            | None -> l, Unclosed_identifier {from = from s l.offset l.source}
             | Some c -> advance l 1 |> lex_special_ident_body (Bytes.cat b (bytes_of_char c)) s
     let lex_token l =
         match l.state with
             Done -> l, None
-            | Ready -> l |> set_state Lexing, Some (Structural (Beginning_of_source {from = from l.offset l.offset l.source}))
+            | Ready -> l |> set_state Lexing, Structural (Beginning_of_source {from = from l.offset l.offset l.source})
             | Lexing -> let l = skip_iws l in
                 match look l 0 with
-                    None -> l |> set_state Done, Some (Structural (Ending_of_source {from = from l.offset l.offset l.source}))
+                    None -> l |> set_state Done, Structural (Ending_of_source {from = from l.offset l.offset l.source})
                     (* SIGILS *)
                     | Some '(' -> begin match look l 1 with
-                        | Some ')' -> advance l 2, Some (Atomic (Unit {from = from l.offset (l.offset + 1) l.source}))
-                        | _ -> advance l 1, Some (Structural (Left_parenthesis {from = from l.offset (l.offset + 1) l.source}))
+                        | Some ')' -> advance l 2, Unit {from = from l.offset (l.offset + 1) l.source}
+                        | _ -> advance l 1, Structural (Left_parenthesis {from = from l.offset (l.offset + 1) l.source})
                     end
                     | Some ')' -> begin match look l 1 with
-                        Some c when is_implicit_break c -> advance l 1, Some (Structural (Right_parenthesis {from = from l.offset (l.offset + 1) l.source}))
-                        | None -> advance l 1, Some (Structural (Right_parenthesis {from = from l.offset (l.offset + 1) l.source}))
+                        Some c when is_implicit_break c -> advance l 1, Structural (Right_parenthesis {from = from l.offset (l.offset + 1) l.source})
+                        | None -> advance l 1, Structural (Right_parenthesis {from = from l.offset (l.offset + 1) l.source})
                         | Some _ -> l |> lex_forbidden_ident_body l.offset
                     end
-                    | Some '\'' -> advance l 1, Some (Structural (Quote {from = from l.offset (l.offset + 1) l.source}))
+                    | Some '\'' -> advance l 1, Structural (Quote {from = from l.offset (l.offset + 1) l.source})
                     (* EOL *)
                     | Some '\n' -> begin match look l 1 with
-                        Some '\r' -> advance l 2, Some (Structural (End_of_line {from = from l.offset (l.offset + 2) l.source}))
-                        | _ -> advance l 1, Some (Structural (End_of_line {from = from l.offset (l.offset + 1) l.source}))
+                        Some '\r' -> advance l 2, Structural (End_of_line {from = from l.offset (l.offset + 2) l.source})
+                        | _ -> advance l 1, Structural (End_of_line {from = from l.offset (l.offset + 1) l.source})
                     end
                     (* REMARKS *)
                     | Some '#' -> begin match look l 1 with
@@ -376,7 +363,7 @@ module Lexer = struct
                         | _ -> advance l 1 |> lex_ident_body (bytes_of_char 'i') l.offset
                     end
                     | Some '_' -> begin match look l 1 with
-                        Some c when is_implicit_break c -> advance l 1, Some (Atomic (Wildcard_identifier {from = from l.offset (l.offset + 1) l.source}))
+                        Some c when is_implicit_break c -> advance l 1, Wildcard_identifier {from = from l.offset (l.offset + 1) l.source}
                         | _ -> advance l 1 |> lex_ident_body (bytes_of_char '_') l.offset
                     end
                     | Some c -> advance l 1 |> lex_ident_body (bytes_of_char c) l.offset
@@ -387,3 +374,12 @@ let of_lexer l =
     {lexer = l}
 let of_source s =
     of_lexer (Lexer.of_source s)
+let rec parse_expr p =
+    match Lexer.lex_token p.lexer with
+        l, None -> of_lexer l, Expr.None
+        | l, Structural s -> of_lexer l, Expr.Structural s
+        | l, x -> match parse_expr (of_lexer l) with
+                _, None -> of_lexer l, x
+                | sp, sx -> match sx with
+                    Structural _ -> of_lexer l, x
+                    | _ -> sp, Expr.Pair {left = x; right = sx}
