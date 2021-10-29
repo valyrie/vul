@@ -380,3 +380,15 @@ let lex_token p =
 let shift p =
     let (p, t) = lex_token p in
         {p with v = t :: p.v}
+let rec consume p n =
+    if n != 0 then
+        match p.v with
+            [] -> raise (Invalid_argument "unable to consume expressions which do not exist")
+            | _ :: tl -> consume {p with v = tl} (n - 1)
+    else
+        p
+let v_nth p n =
+    List.nth p.v n
+let v_la p =
+    match lex_token p with
+        _, t -> t
