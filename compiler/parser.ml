@@ -368,18 +368,15 @@ module Lexer = struct
                     end
                     | Some c -> advance l 1 |> lex_ident_body (bytes_of_char c) l.offset
 end
-type t =
-    {lexer: Lexer.t}
+type 'a t =
+    {v: 'a list; lexer: Lexer.t}
 let of_lexer l =
-    {lexer = l}
+    {v = []; lexer = l}
 let of_source s =
     of_lexer (Lexer.of_source s)
-let rec parse_expr p =
+let lex_token p =
     match Lexer.lex_token p.lexer with
-        l, None -> of_lexer l, Expr.None
-        | l, Structural s -> of_lexer l, Expr.Structural s
-        | l, x -> match parse_expr (of_lexer l) with
-                _, None -> of_lexer l, x
-                | sp, sx -> match sx with
-                    Structural _ -> of_lexer l, x
-                    | _ -> sp, Expr.Pair {left = x; right = sx}
+        l, t -> {p with lexer = l}, t
+let shift p =
+    let (p, t) = lex_token p in
+        {p with v = t :: p.v}
