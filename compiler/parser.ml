@@ -404,7 +404,7 @@ and parse_expr p: Expr.t =
         match state_of p with
             (* CONSUME LINE ENDINGS *)
             _, (End_of_line _) :: _ -> drop 1 p
-            (* CONSOME REMARKS *)
+            (* CONSUME REMARKS *)
             | _, (Remark _) :: _ -> drop 1 p
             (* REDUCE UNIT *)
             | _, (Right_parenthesis r) :: (Left_parenthesis l) :: _ -> reduce 2 (Unit {left = l; right = r}) p
