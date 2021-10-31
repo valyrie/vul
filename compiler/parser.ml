@@ -416,7 +416,6 @@ module Is = struct
         is_atom x
         || is_nonterminal x
 end
-
 type 'a t =
     {v: 'a list; lexer: Lexer.t}
 let of_lexer l =
@@ -441,3 +440,15 @@ let v_nth p n =
 let v_la p =
     match lex_token p with
         _, t -> t
+let rec parse_expr p =
+    if v_la p != None then
+        (* THERE IS AT LEAST ONE UNPARSED TOKEN -- SOURCE IS NOT EMPTY *)
+        if List.length p.v > 0 then
+            (* THERE IS AT LEAST ONE EXPR IN THE REWRITE BUFFER *)
+            ()
+        else
+            (* NO EXPRS IN THE REWRITE BUFFER -- SHIFT *)
+            shift p |> parse_expr
+    else
+        (* NO MORE TOKENS TO PARSE *)
+        ()
