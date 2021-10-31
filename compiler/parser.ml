@@ -105,13 +105,12 @@ module rec Expr: sig
             type integer_literal = {sign: Sign.t; digits: bytes; base: Base.t; from: From.t}
             type identifier = {bytes: bytes; from: From.t}
             type wildcard_identifier = {from: From.t}
-            type unit = {from: From.t}
         end
     end
     module Nonterminal: sig
         type pair = {left: Expr.t; right: Expr.t}
         type parentheses = {x: Expr.t; left: Token.Structural.left_parenthesis; right: Token.Structural.right_parenthesis}
-        type unclosed_parentheses = {x: Expr.t; left: Token.Structural.left_parenthesis}
+        type unit = {left: Token.Structural.left_parenthesis; right: Token.Structural.right_parenthesis}
         type quoted = {x: Expr.t; quote: Token.Structural.quote}
         type source = {x: Expr.t; beginning: Token.Structural.beginning_of_source; ending: Token.Structural.ending_of_source}
     end
@@ -125,7 +124,7 @@ module rec Expr: sig
         | Integer_literal of Token.Atomic.integer_literal
         | Identifier of Token.Atomic.identifier
         | Wildcard_identifier of Token.Atomic.wildcard_identifier
-        | Unit of Token.Atomic.unit
+        | Unit of Nonterminal.unit
         (* NONTERMINALS *)
         | Pair of Nonterminal.pair
         | Parentheses of Nonterminal.parentheses
@@ -322,10 +321,7 @@ module Lexer = struct
                 match look l 0 with
                     None -> l |> set_state Done, Structural (Ending_of_source {from = from l.offset l.offset l.source})
                     (* SIGILS *)
-                    | Some '(' -> begin match look l 1 with
-                        | Some ')' -> advance l 2, Unit {from = from l.offset (l.offset + 1) l.source}
-                        | _ -> advance l 1, Structural (Left_parenthesis {from = from l.offset (l.offset + 1) l.source})
-                    end
+                    | Some '(' -> advance l 1, Structural (Left_parenthesis {from = from l.offset (l.offset + 1) l.source})
                     | Some ')' -> begin match look l 1 with
                         Some c when is_implicit_break c -> advance l 1, Structural (Right_parenthesis {from = from l.offset (l.offset + 1) l.source})
                         | None -> advance l 1, Structural (Right_parenthesis {from = from l.offset (l.offset + 1) l.source})
