@@ -12,3 +12,4 @@ val normalize_partial : t -> t
 val of_string_list : t -> string list -> t
 val of_string : string -> t
 val append : t -> t -> t
+val base : t -> string

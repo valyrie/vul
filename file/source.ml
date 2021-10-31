@@ -1,6 +1,7 @@
 (* source file *)
 
 type t = {path: Path.t; channel: in_channel; mutable buffer: bytes; min_load: int}
+let path s = s.path
 let open_path p =
   if not (Fs.path_exists p) then
     raise (Io.FileNotFound (String.concat "" [(Path.to_string p); ": No such file"]))

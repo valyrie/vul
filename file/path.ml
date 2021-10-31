@@ -9,6 +9,9 @@ type t =
     | Here of t
     | Name of t * string
     | Up of t
+let sep = Filename.dir_sep
+let rel = Filename.current_dir_name
+let par = Filename.parent_dir_name
 let rec is_relative p =
     match p with
         Root -> false
@@ -19,12 +22,12 @@ let rec is_relative p =
 let rec to_string_list p l =
     match p with
         Root -> "" :: l
-        | Rel -> "." :: l
+        | Rel -> rel :: l
         | Here sub -> to_string_list sub l
         | Name (sub, name) -> to_string_list sub (name :: l)
-        | Up sub -> to_string_list sub (".." :: l)
+        | Up sub -> to_string_list sub (par :: l)
 let to_string p =
-    String.concat "/" (to_string_list p [])
+    String.concat sep (to_string_list p [])
 let rec up p =
     match p with
         Root -> raise (NoUp "path is root")
@@ -73,3 +76,10 @@ let rec append a b =
         | Here sub -> Here (append a sub)
         | Name (sub, name) -> Name (append a sub, name)
         | Up sub -> Up (append a sub)
+let rec base p =
+    match p with
+        Root -> sep
+        | Rel -> rel
+        | Here t -> base t
+        | Name (_, s) -> Filename.remove_extension s
+        | Up t -> base (up t)
