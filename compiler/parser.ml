@@ -86,19 +86,10 @@ module rec Expr: sig
     end
     module Token: sig
         module Structural: sig
-            type beginning_of_source = {from: From.t}
-            type ending_of_source = {from: From.t}
             type left_parenthesis = {from: From.t}
             type right_parenthesis = {from: From.t}
             type quote = {from: From.t}
             type end_of_line = {from: From.t}
-            type t =
-                Beginning_of_source of beginning_of_source
-                | Ending_of_source of ending_of_source
-                | Left_parenthesis of left_parenthesis
-                | Right_parenthesis of right_parenthesis
-                | Quote of quote
-                | End_of_line of end_of_line
         end
         module Atomic: sig
             type string_literal = {bytes: bytes; from: From.t}
@@ -112,24 +103,26 @@ module rec Expr: sig
         type parentheses = {x: Expr.t; left: Token.Structural.left_parenthesis; right: Token.Structural.right_parenthesis}
         type unit = {left: Token.Structural.left_parenthesis; right: Token.Structural.right_parenthesis}
         type quoted = {x: Expr.t; quote: Token.Structural.quote}
-        type source = {x: Expr.t; beginning: Token.Structural.beginning_of_source; ending: Token.Structural.ending_of_source}
     end
     type t =
         None
+        | Incomplete_parse
         | Error of Error.t
         (* STRUCTURAL TOKENS *)
-        | Structural of Token.Structural.t
+        | Left_parenthesis of Token.Structural.left_parenthesis
+        | Right_parenthesis of Token.Structural.right_parenthesis
+        | Quote of Token.Structural.quote
+        | End_of_line of Token.Structural.end_of_line
         (* ATOMIC TOKENS *)
         | String_literal of Token.Atomic.string_literal
         | Integer_literal of Token.Atomic.integer_literal
         | Identifier of Token.Atomic.identifier
         | Wildcard_identifier of Token.Atomic.wildcard_identifier
-        | Unit of Nonterminal.unit
         (* NONTERMINALS *)
         | Pair of Nonterminal.pair
         | Parentheses of Nonterminal.parentheses
+        | Unit of Nonterminal.unit
         | Quoted of Nonterminal.quoted
-        | Source of Nonterminal.source
 end = Expr
 module Lexer = struct
     open Expr
@@ -313,25 +306,25 @@ module Lexer = struct
             end
             | None -> l, Error {from = from s l.offset l.source; kind = Unclosed_identifier}
             | Some c -> advance l 1 |> lex_special_ident_body (Bytes.cat b (bytes_of_char c)) s
-    let lex_token l =
+    let rec lex_token l =
         match l.state with
             Done -> l, None
-            | Ready -> l |> set_state Lexing, Structural (Beginning_of_source {from = from l.offset l.offset l.source})
+            | Ready -> l |> set_state Lexing |> lex_token
             | Lexing -> let l = skip_iws l in
                 match look l 0 with
-                    None -> l |> set_state Done, Structural (Ending_of_source {from = from l.offset l.offset l.source})
+                    None -> l |> set_state Done, None
                     (* SIGILS *)
-                    | Some '(' -> advance l 1, Structural (Left_parenthesis {from = from l.offset (l.offset + 1) l.source})
+                    | Some '(' -> advance l 1, Left_parenthesis {from = from l.offset (l.offset + 1) l.source}
                     | Some ')' -> begin match look l 1 with
-                        Some c when is_implicit_break c -> advance l 1, Structural (Right_parenthesis {from = from l.offset (l.offset + 1) l.source})
-                        | None -> advance l 1, Structural (Right_parenthesis {from = from l.offset (l.offset + 1) l.source})
+                        Some c when is_implicit_break c -> advance l 1, Right_parenthesis {from = from l.offset (l.offset + 1) l.source}
+                        | None -> advance l 1, Right_parenthesis {from = from l.offset (l.offset + 1) l.source}
                         | Some _ -> l |> lex_forbidden_ident_body l.offset
                     end
-                    | Some '\'' -> advance l 1, Structural (Quote {from = from l.offset (l.offset + 1) l.source})
+                    | Some '\'' -> advance l 1, Quote {from = from l.offset (l.offset + 1) l.source}
                     (* EOL *)
                     | Some '\n' -> begin match look l 1 with
-                        Some '\r' -> advance l 2, Structural (End_of_line {from = from l.offset (l.offset + 2) l.source})
-                        | _ -> advance l 1, Structural (End_of_line {from = from l.offset (l.offset + 1) l.source})
+                        Some '\r' -> advance l 2, End_of_line {from = from l.offset (l.offset + 2) l.source}
+                        | _ -> advance l 1, End_of_line {from = from l.offset (l.offset + 1) l.source}
                     end
                     (* REMARKS *)
                     | Some '#' -> begin match look l 1 with
@@ -372,9 +365,8 @@ let of_source s =
 let lex_token p =
     match Lexer.lex_token p.lexer with
         l, t -> {p with lexer = l}, t
-let shift p =
-    let (p, t) = lex_token p in
-        {p with v = t :: p.v}
+let push x p =
+    {p with v = x :: p.v}
 let rec consume p n =
     if n != 0 then
         match p.v with
@@ -383,19 +375,27 @@ let rec consume p n =
     else
         p
 let v_nth p n =
-    List.nth p.v n
+    try Some (List.nth p.v n) with
+        Failure _ -> None
 let v_la p =
     match lex_token p with
         _, t -> t
-let rec parse_expr p =
-    if v_la p != None then
-        (* THERE IS AT LEAST ONE UNPARSED TOKEN -- SOURCE IS NOT EMPTY *)
-        if List.length p.v > 0 then
-            (* THERE IS AT LEAST ONE EXPR IN THE REWRITE BUFFER *)
-            ()
-        else
-            (* NO EXPRS IN THE REWRITE BUFFER -- SHIFT *)
-            shift p |> parse_expr
-    else
-        (* NO MORE TOKENS TO PARSE *)
-        ()
+let state_of p =
+    v_la p, p.v
+let rec shift p =
+    let (p, t) = lex_token p in
+        push t p |> parse_expr
+and reduce n x p =
+    consume p n |> push x |> parse_expr
+and drop n p =
+    consume p n |> parse_expr
+and parse_expr p: Expr.t =
+    match state_of p with
+        (* TODO *)
+        (* RETURN *)
+        | None, [] -> None
+        | None, [x] -> x
+        (* INCOMPLTE PARSE *)
+        | None, _ -> Incomplete_parse
+        (* ELSE: SHIFT *)
+        | _, _ -> shift p
