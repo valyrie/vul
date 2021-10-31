@@ -151,9 +151,9 @@ module Lexer = struct
     let is_bad_ident_break c =
         is_iws c || c = '\n'
     let is_implicit_break c =
-        is_bad_ident_break c || c = ')'
+        is_bad_ident_break c  || c = '\'' || c = '(' || c = ')'
     let is_forbidden_sigil c =
-        c = '"' || c = '\'' || c = '('
+        c = '"'
     let rec skip_iws l =
         match look l 0 with
             Some c when is_iws c -> advance l 1 |> skip_iws
@@ -314,11 +314,7 @@ module Lexer = struct
                     None -> l |> set_state Done, None
                     (* SIGILS *)
                     | Some '(' -> advance l 1, Left_parenthesis {from = from l.offset (l.offset + 1) l.source}
-                    | Some ')' -> begin match look l 1 with
-                        Some c when is_implicit_break c -> advance l 1, Right_parenthesis {from = from l.offset (l.offset + 1) l.source}
-                        | None -> advance l 1, Right_parenthesis {from = from l.offset (l.offset + 1) l.source}
-                        | Some _ -> l |> lex_forbidden_ident_body l.offset
-                    end
+                    | Some ')' -> advance l 1, Right_parenthesis {from = from l.offset (l.offset + 1) l.source}
                     | Some '\'' -> advance l 1, Quote {from = from l.offset (l.offset + 1) l.source}
                     (* EOL *)
                     | Some '\n' -> begin match look l 1 with
