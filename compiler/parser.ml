@@ -71,6 +71,19 @@ module Sign = struct
             | None -> raise (Invalid_argument "unknown sign")
 end
 module rec Expr: sig
+    module Error: sig
+        type kind =
+            Orphaned_structural_token
+            | Unclosed_block_remark
+            | Unknown_escape_string_literal
+            | Unclosed_string_literal
+            | Malformed_number_literal
+            | Forbidden_identifier
+            | Unknown_escape_identifier
+            | Unclosed_identifier
+            | Unclosed_parenthesis
+        type t = {from: From.t; kind: kind}
+    end
     module Token: sig
         module Structural: sig
             type beginning_of_source = {from: From.t}
@@ -88,16 +101,9 @@ module rec Expr: sig
                 | End_of_line of end_of_line
         end
         module Atomic: sig
-            type unclosed_block_remark = {from: From.t}
             type string_literal = {bytes: bytes; from: From.t}
-            type unknown_escape_string_literal = {from: From.t}
-            type unclosed_string_literal = {from: From.t}
             type integer_literal = {sign: Sign.t; digits: bytes; base: Base.t; from: From.t}
-            type malformed_integer_literal = {from: From.t}
-            type forbidden_identifier = {from: From.t}
             type identifier = {bytes: bytes; from: From.t}
-            type unknown_escape_identifier = {from: From.t}
-            type unclosed_identifier = {from: From.t}
             type wildcard_identifier = {from: From.t}
             type unit = {from: From.t}
         end
@@ -111,25 +117,18 @@ module rec Expr: sig
     end
     type t =
         None
+        | Error of Error.t
         (* STRUCTURAL TOKENS *)
         | Structural of Token.Structural.t
         (* ATOMIC TOKENS *)
-        | Unclosed_block_remark of Token.Atomic.unclosed_block_remark
         | String_literal of Token.Atomic.string_literal
-        | Unknown_escape_string_literal of Token.Atomic.unknown_escape_string_literal
-        | Unclosed_string_literal of Token.Atomic.unclosed_string_literal
-        | Forbidden_identifier of Token.Atomic.forbidden_identifier
         | Integer_literal of Token.Atomic.integer_literal
-        | Malformed_integer_literal of Token.Atomic.malformed_integer_literal
         | Identifier of Token.Atomic.identifier
-        | Unknown_escape_identifier of Token.Atomic.unknown_escape_identifier
-        | Unclosed_identifier of Token.Atomic.unclosed_identifier
         | Wildcard_identifier of Token.Atomic.wildcard_identifier
         | Unit of Token.Atomic.unit
         (* NONTERMINALS *)
         | Pair of Nonterminal.pair
         | Parentheses of Nonterminal.parentheses
-        | Unclosed_paretheses of Nonterminal.unclosed_parentheses
         | Quoted of Nonterminal.quoted
         | Source of Nonterminal.source
 end = Expr
@@ -179,7 +178,7 @@ module Lexer = struct
                 | Some '[' -> let (sl, _) = advance l 2 |> lex_mlrem_body (l.offset) in sl |> lex_mlrem_body s
                 | _ -> advance l 1 |> lex_mlrem_body s
             end
-            | None -> l, Unclosed_block_remark {from = from s l.offset l.source}
+            | None -> l, Error {from = from s l.offset l.source; kind = Unclosed_block_remark}
             | _ -> advance l 1 |> lex_mlrem_body s
     let rec lex_slrem_body l =
         match look l 0 with
@@ -234,11 +233,11 @@ module Lexer = struct
             | Some _ -> l, None
     let rec lex_unknown_escape_str_body s l =
         match look l 0 with
-            Some '"' -> advance l 1, Unknown_escape_string_literal {from = from s l.offset l.source}
+            Some '"' -> advance l 1, Error {from = from s l.offset l.source; kind = Unknown_escape_string_literal}
             | Some '\\' -> begin match advance l 1 |> sublex_escape_body with
                 sl, _ -> sl |> lex_unknown_escape_str_body s
             end
-            | None -> l, Unclosed_string_literal {from = from s l.offset l.source}
+            | None -> l, Error {from = from s l.offset l.source; kind = Unclosed_string_literal}
             | Some _ -> advance l 1 |> lex_unknown_escape_str_body  s
     let rec lex_str_body raw b s l =
         match look l 0 with
@@ -247,12 +246,12 @@ module Lexer = struct
                 sl, Some ch -> sl |> lex_str_body raw (Bytes.cat b (bytes_of_char ch)) s
                 | _, None -> lex_unknown_escape_str_body s l
             end
-            | None -> l, Unclosed_string_literal {from = from s l.offset l.source}
+            | None -> l, Error {from = from s l.offset l.source; kind = Unclosed_string_literal}
             | Some c -> advance l 1 |> lex_str_body raw (Bytes.cat b (bytes_of_char c)) s
     let rec lex_mal_int_body s l =
         match look l 0 with
-            Some c when is_implicit_break c -> l, Malformed_integer_literal {from = from s l.offset l.source}
-            | None -> l, Malformed_integer_literal {from = from s l.offset l.source}
+            Some c when is_implicit_break c -> l, Error {from = from s l.offset l.source; kind = Malformed_number_literal}
+            | None -> l, Error {from = from s l.offset l.source; kind = Malformed_number_literal}
             | Some _ -> advance l 1 |> lex_mal_int_body s
     let produce_integer n p e b s l =
         let open Option in
@@ -261,7 +260,7 @@ module Lexer = struct
                 | Some prefix -> if Base.within e prefix then
                         l, Integer_literal {sign = n; digits = b; base = prefix; from = from s l.offset l.source}
                     else
-                        l, Malformed_integer_literal {from = from s l.offset l.source}
+                        l, Error {from = from s l.offset l.source; kind = Malformed_number_literal}
     let rec lex_int_body n p e b s l =
         let open Base in
             match look l 0 with
@@ -289,8 +288,8 @@ module Lexer = struct
                 | _ -> l |> lex_int_body n None Decimal Bytes.empty s
     let rec lex_forbidden_ident_body s l =
         match look l 0 with
-            Some c when is_bad_ident_break c -> l, Forbidden_identifier {from = from s l.offset l.source}
-            | None -> l, Forbidden_identifier {from = from s l.offset l.source}
+            Some c when is_bad_ident_break c -> l, Error {from = from s l.offset l.source; kind = Forbidden_identifier}
+            | None -> l, Error {from = from s l.offset l.source; kind = Forbidden_identifier}
             | Some _ -> advance l 1 |> lex_forbidden_ident_body s
     let rec lex_ident_body b s l =
         match look l 0 with
@@ -300,11 +299,11 @@ module Lexer = struct
             | Some c -> advance l 1 |> lex_ident_body (Bytes.cat b (bytes_of_char c)) s
     let rec lex_unknown_escape_special_ident_body s l =
         match look l 0 with
-            Some '"' -> advance l 1, Unknown_escape_identifier {from = from s l.offset l.source}
+            Some '"' -> advance l 1, Error {from = from s l.offset l.source; kind = Unknown_escape_identifier}
             | Some '\\' -> begin match advance l 1 |> sublex_escape_body with
                 sl, _ -> sl |> lex_unknown_escape_special_ident_body s
             end
-            | None -> l, Unclosed_identifier {from = from s l.offset l.source}
+            | None -> l, Error {from = from s l.offset l.source; kind = Unclosed_identifier}
             | Some _ -> advance l 1 |> lex_unknown_escape_special_ident_body s
     let rec lex_special_ident_body b s l =
         match look l 0 with
@@ -313,7 +312,7 @@ module Lexer = struct
                 sl, Some ch -> sl |> lex_special_ident_body (Bytes.cat b (bytes_of_char ch)) s
                 | _, None -> lex_unknown_escape_special_ident_body s l
             end
-            | None -> l, Unclosed_identifier {from = from s l.offset l.source}
+            | None -> l, Error {from = from s l.offset l.source; kind = Unclosed_identifier}
             | Some c -> advance l 1 |> lex_special_ident_body (Bytes.cat b (bytes_of_char c)) s
     let lex_token l =
         match l.state with
@@ -368,6 +367,56 @@ module Lexer = struct
                     end
                     | Some c -> advance l 1 |> lex_ident_body (bytes_of_char c) l.offset
 end
+module Is = struct
+    type t =
+        None
+        | Error
+        | Structural
+        | Identifier
+        | Literal
+        | Wildcard
+        | Nonterminal
+    let is (x: Expr.t) =
+        match x with
+            None -> None
+            (* ERROR *)
+            | Error _ -> Error
+            (* STRUCTURAL *)
+            | Structural _ -> Structural
+            (* ATOMIC TOKENS *)
+            | String_literal _
+            | Integer_literal _ -> Literal
+            | Identifier _ -> Identifier
+            | Wildcard_identifier _ -> Wildcard
+            | Unit _ -> Literal
+            (* NONTERMINALS *)
+            | Pair _
+            | Parentheses _
+            | Quoted _
+            | Source _ -> Nonterminal
+    let is_none x =
+        is x = None
+    let is_structural x =
+        is x = Structural
+    let is_identifier x =
+        is x = Identifier
+    let is_literal x =
+        is x = Literal
+    let is_wildcard x =
+        is x = Wildcard
+    let is_error x =
+        is x = Error
+    let is_nonterminal x =
+        is x = Nonterminal
+    let is_atom x =
+        is_identifier x
+        || is_literal x
+        || is_wildcard x
+    let is_expr x =
+        is_atom x
+        || is_nonterminal x
+end
+
 type 'a t =
     {v: 'a list; lexer: Lexer.t}
 let of_lexer l =
