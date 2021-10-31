@@ -363,55 +363,6 @@ module Lexer = struct
                     end
                     | Some c -> advance l 1 |> lex_ident_body (bytes_of_char c) l.offset
 end
-module Is = struct
-    type t =
-        None
-        | Error
-        | Structural
-        | Identifier
-        | Literal
-        | Wildcard
-        | Nonterminal
-    let is (x: Expr.t) =
-        match x with
-            None -> None
-            (* ERROR *)
-            | Error _ -> Error
-            (* STRUCTURAL *)
-            | Structural _ -> Structural
-            (* ATOMIC TOKENS *)
-            | String_literal _
-            | Integer_literal _ -> Literal
-            | Identifier _ -> Identifier
-            | Wildcard_identifier _ -> Wildcard
-            | Unit _ -> Literal
-            (* NONTERMINALS *)
-            | Pair _
-            | Parentheses _
-            | Quoted _
-            | Source _ -> Nonterminal
-    let is_none x =
-        is x = None
-    let is_structural x =
-        is x = Structural
-    let is_identifier x =
-        is x = Identifier
-    let is_literal x =
-        is x = Literal
-    let is_wildcard x =
-        is x = Wildcard
-    let is_error x =
-        is x = Error
-    let is_nonterminal x =
-        is x = Nonterminal
-    let is_atom x =
-        is_identifier x
-        || is_literal x
-        || is_wildcard x
-    let is_expr x =
-        is_atom x
-        || is_nonterminal x
-end
 type 'a t =
     {v: 'a list; lexer: Lexer.t}
 let of_lexer l =
