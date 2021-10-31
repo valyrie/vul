@@ -135,8 +135,6 @@ module Lexer = struct
         | Lexing
         | Done
     type t = {offset: int; source: File.Source.t; state: lex_state}
-    let bytes_of_chars l =
-        Bytes.init (List.length l) (List.nth l)
     let bytes_of_char c =
         Bytes.init 1 (fun _ -> c)
     let look l n =
@@ -384,9 +382,6 @@ let rec consume p n =
             | _ :: tl -> consume {p with v = tl} (n - 1)
     else
         p
-let v_nth p n =
-    try Some (List.nth p.v n) with
-        Failure _ -> None
 let v_la p =
     match lex_token p with
         _, t -> t
