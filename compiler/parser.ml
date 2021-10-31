@@ -91,6 +91,7 @@ module rec Expr: sig
             type end_of_line = {from: From.t}
         end
         module Atomic: sig
+            type remark = {from: From.t}
             type string_literal = {bytes: bytes; from: From.t}
             type integer_literal = {sign: Sign.t; digits: bytes; base: Base.t; from: From.t}
             type identifier = {bytes: bytes; from: From.t}
@@ -113,6 +114,7 @@ module rec Expr: sig
         | Quote of Token.Structural.quote
         | End_of_line of Token.Structural.end_of_line
         (* ATOMIC TOKENS *)
+        | Remark of Token.Atomic.remark
         | String_literal of Token.Atomic.string_literal
         | Integer_literal of Token.Atomic.integer_literal
         | Identifier of Token.Atomic.identifier
@@ -165,21 +167,21 @@ module Lexer = struct
     let rec lex_mlrem_body s l =
         match look l 0 with
             Some '#' -> begin match look l 1 with
-                Some ']' -> advance l 2, None
+                Some ']' -> advance l 2, Remark {from = from s (l.offset + 3) l.source}
                 | Some '[' -> let (sl, _) = advance l 2 |> lex_mlrem_body (l.offset) in sl |> lex_mlrem_body s
                 | _ -> advance l 1 |> lex_mlrem_body s
             end
             | None -> l, Error (Unclosed_block_remark (from s l.offset l.source))
             | _ -> advance l 1 |> lex_mlrem_body s
-    let rec lex_slrem_body l =
+    let rec lex_slrem_body s l =
         match look l 0 with
-            Some '\n' -> l, None
+            Some '\n' -> l, Remark {from = from s (l.offset) l.source}
             | Some '\\' -> begin match look l 1 with
-                Some '\n' -> advance l 2 |> lex_slrem_body
-                | _ -> advance l 1 |> lex_slrem_body
+                Some '\n' -> advance l 2 |> lex_slrem_body s
+                | _ -> advance l 1 |> lex_slrem_body s
             end
-            | None -> l, None
-            | _ -> advance l 1 |> lex_slrem_body
+            | None -> l, Remark {from = from s (l.offset) l.source}
+            | _ -> advance l 1 |> lex_slrem_body s
     let rec sublex_octal s l =
         let open Option in
             let open Base in
@@ -324,7 +326,7 @@ module Lexer = struct
                     (* REMARKS *)
                     | Some '#' -> begin match look l 1 with
                         Some '[' -> advance l 2 |> lex_mlrem_body l.offset
-                        | _ -> advance l 1 |> lex_slrem_body
+                        | _ -> advance l 1 |> lex_slrem_body l.offset
                     end
                     (* STRINGS *)
                     | Some 'r' -> begin match look l 1 with
@@ -402,6 +404,8 @@ and parse_expr p: Expr.t =
         match state_of p with
             (* CONSUME LINE ENDINGS *)
             _, (End_of_line _) :: _ -> drop 1 p
+            (* CONSOME REMARKS *)
+            | _, (Remark _) :: _ -> drop 1 p
             (* REDUCE UNIT *)
             | _, (Right_parenthesis r) :: (Left_parenthesis l) :: _ -> reduce 2 (Unit {left = l; right = r}) p
             (* REDUCE PARENS *)
@@ -410,7 +414,7 @@ and parse_expr p: Expr.t =
             | _, x :: (Quote q) :: _ when is_quotable x -> reduce 2 (Quoted {x = x; quote = q}) p
             (* ORPHAN EMPTY QUOTE *)
             | _, x :: (Quote q) :: _ -> consume p 2
-                |> push (Error (Error.Orphaned_structural_token x))
+                |> push (Error (Error.Orphaned_structural_token (Quote q)))
                 |> push x
                 |> parse_expr
             (* REDUCE PAIR *)
