@@ -72,17 +72,16 @@ module Sign = struct
 end
 module rec Expr: sig
     module Error: sig
-        type kind =
-            Orphaned_structural_token
-            | Unclosed_block_remark
-            | Unknown_escape_string_literal
-            | Unclosed_string_literal
-            | Malformed_number_literal
-            | Forbidden_identifier
-            | Unknown_escape_identifier
-            | Unclosed_identifier
-            | Unclosed_parenthesis
-        type t = {from: From.t; kind: kind}
+        type t =
+            Orphaned_structural_token of Expr.t
+            | Unclosed_block_remark of From.t
+            | Unknown_escape_sring_literal of From.t
+            | Unclosed_string_literal of From.t
+            | Malformed_number_literal of From.t
+            | Forbidden_identifier of From.t
+            | Unknown_escape_identifier of From.t
+            | Unclosed_identifier of From.t
+            | Unclosed_parenthesis of Expr.Token.Structural.left_parenthesis * Expr.t
     end
     module Token: sig
         module Structural: sig
@@ -170,7 +169,7 @@ module Lexer = struct
                 | Some '[' -> let (sl, _) = advance l 2 |> lex_mlrem_body (l.offset) in sl |> lex_mlrem_body s
                 | _ -> advance l 1 |> lex_mlrem_body s
             end
-            | None -> l, Error {from = from s l.offset l.source; kind = Unclosed_block_remark}
+            | None -> l, Error (Unclosed_block_remark (from s l.offset l.source))
             | _ -> advance l 1 |> lex_mlrem_body s
     let rec lex_slrem_body l =
         match look l 0 with
@@ -225,11 +224,11 @@ module Lexer = struct
             | Some _ -> l, None
     let rec lex_unknown_escape_str_body s l =
         match look l 0 with
-            Some '"' -> advance l 1, Error {from = from s l.offset l.source; kind = Unknown_escape_string_literal}
+            Some '"' -> advance l 1, Error (Unknown_escape_sring_literal (from s l.offset l.source))
             | Some '\\' -> begin match advance l 1 |> sublex_escape_body with
                 sl, _ -> sl |> lex_unknown_escape_str_body s
             end
-            | None -> l, Error {from = from s l.offset l.source; kind = Unclosed_string_literal}
+            | None -> l, Error (Unclosed_string_literal (from s l.offset l.source))
             | Some _ -> advance l 1 |> lex_unknown_escape_str_body  s
     let rec lex_str_body raw b s l =
         match look l 0 with
@@ -238,12 +237,12 @@ module Lexer = struct
                 sl, Some ch -> sl |> lex_str_body raw (Bytes.cat b (bytes_of_char ch)) s
                 | _, None -> lex_unknown_escape_str_body s l
             end
-            | None -> l, Error {from = from s l.offset l.source; kind = Unclosed_string_literal}
+            | None -> l, Error (Unclosed_string_literal (from s l.offset l.source))
             | Some c -> advance l 1 |> lex_str_body raw (Bytes.cat b (bytes_of_char c)) s
     let rec lex_mal_int_body s l =
         match look l 0 with
-            Some c when is_implicit_break c -> l, Error {from = from s l.offset l.source; kind = Malformed_number_literal}
-            | None -> l, Error {from = from s l.offset l.source; kind = Malformed_number_literal}
+            Some c when is_implicit_break c -> l, Error (Malformed_number_literal (from s l.offset l.source))
+            | None -> l, Error (Malformed_number_literal (from s l.offset l.source))
             | Some _ -> advance l 1 |> lex_mal_int_body s
     let produce_integer n p e b s l =
         let open Option in
@@ -252,7 +251,7 @@ module Lexer = struct
                 | Some prefix -> if Base.within e prefix then
                         l, Integer_literal {sign = n; digits = b; base = prefix; from = from s l.offset l.source}
                     else
-                        l, Error {from = from s l.offset l.source; kind = Malformed_number_literal}
+                        l, Error (Malformed_number_literal (from s l.offset l.source))
     let rec lex_int_body n p e b s l =
         let open Base in
             match look l 0 with
@@ -280,8 +279,8 @@ module Lexer = struct
                 | _ -> l |> lex_int_body n None Decimal Bytes.empty s
     let rec lex_forbidden_ident_body s l =
         match look l 0 with
-            Some c when is_bad_ident_break c -> l, Error {from = from s l.offset l.source; kind = Forbidden_identifier}
-            | None -> l, Error {from = from s l.offset l.source; kind = Forbidden_identifier}
+            Some c when is_bad_ident_break c -> l, Error (Forbidden_identifier (from s l.offset l.source))
+            | None -> l, Error (Forbidden_identifier (from s l.offset l.source))
             | Some _ -> advance l 1 |> lex_forbidden_ident_body s
     let rec lex_ident_body b s l =
         match look l 0 with
@@ -291,11 +290,11 @@ module Lexer = struct
             | Some c -> advance l 1 |> lex_ident_body (Bytes.cat b (bytes_of_char c)) s
     let rec lex_unknown_escape_special_ident_body s l =
         match look l 0 with
-            Some '"' -> advance l 1, Error {from = from s l.offset l.source; kind = Unknown_escape_identifier}
+            Some '"' -> advance l 1, Error (Unknown_escape_identifier (from s l.offset l.source))
             | Some '\\' -> begin match advance l 1 |> sublex_escape_body with
                 sl, _ -> sl |> lex_unknown_escape_special_ident_body s
             end
-            | None -> l, Error {from = from s l.offset l.source; kind = Unclosed_identifier}
+            | None -> l, Error (Unclosed_identifier (from s l.offset l.source))
             | Some _ -> advance l 1 |> lex_unknown_escape_special_ident_body s
     let rec lex_special_ident_body b s l =
         match look l 0 with
@@ -304,7 +303,7 @@ module Lexer = struct
                 sl, Some ch -> sl |> lex_special_ident_body (Bytes.cat b (bytes_of_char ch)) s
                 | _, None -> lex_unknown_escape_special_ident_body s l
             end
-            | None -> l, Error {from = from s l.offset l.source; kind = Unclosed_identifier}
+            | None -> l, Error (Unclosed_identifier (from s l.offset l.source))
             | Some c -> advance l 1 |> lex_special_ident_body (Bytes.cat b (bytes_of_char c)) s
     let rec lex_token l =
         match l.state with
@@ -356,6 +355,19 @@ module Lexer = struct
                     end
                     | Some c -> advance l 1 |> lex_ident_body (bytes_of_char c) l.offset
 end
+let is_quotable (x: Expr.t) =
+    match x with
+        Left_parenthesis _
+        | Right_parenthesis _
+        | End_of_line _ -> false
+        | _ -> true
+let is_structural (x: Expr.t) =
+    match x with
+        Left_parenthesis _
+        | Right_parenthesis _
+        | Quote _
+        | End_of_line _ -> true
+        | _ -> false
 type 'a t =
     {v: 'a list; lexer: Lexer.t}
 let of_lexer l =
@@ -390,12 +402,31 @@ and reduce n x p =
 and drop n p =
     consume p n |> parse_expr
 and parse_expr p: Expr.t =
-    match state_of p with
-        (* TODO *)
-        (* RETURN *)
-        | None, [] -> None
-        | None, [x] -> x
-        (* INCOMPLTE PARSE *)
-        | None, _ -> Incomplete_parse
-        (* ELSE: SHIFT *)
-        | _, _ -> shift p
+    let open Expr in
+        match state_of p with
+            (* CONSUME LINE ENDINGS *)
+            _, (End_of_line _) :: _ -> drop 1 p
+            (* REDUCE UNIT *)
+            | _, (Right_parenthesis r) :: (Left_parenthesis l) :: _ -> reduce 2 (Unit {left = l; right = r}) p
+            (* REDUCE PARENS *)
+            | _, (Right_parenthesis r) :: x :: (Left_parenthesis l) :: _ -> reduce 3 (Parentheses {x = x; left = l; right = r}) p
+            (* REDUCE QUOTED *)
+            | _, x :: (Quote q) :: _ when is_quotable x -> reduce 2 (Quoted {x = x; quote = q}) p
+            (* ORPHAN EMPTY QUOTE *)
+            | _, x :: (Quote q) :: _ -> consume p 2
+                |> push (Error (Error.Orphaned_structural_token x))
+                |> push x
+                |> parse_expr
+            (* REDUCE PAIR *)
+            | _, r :: l :: _ when not (is_structural r) && not (is_structural l) -> reduce 2 (Pair {left = l; right = r}) p
+            (* ORPHAN LONELY SIGILS *)
+            | None, x :: _ when is_structural x -> Error (Orphaned_structural_token x)
+            (* REDUCE UNCLOSED PARENS *)
+            | None, x :: (Left_parenthesis l) :: _ -> reduce 2 (Error (Unclosed_parenthesis (l, x))) p
+            (* RETURN *)
+            | None, [] -> None
+            | None, [x] -> x
+            (* INCOMPLTE PARSE *)
+            | None, _ -> Incomplete_parse
+            (* ELSE: SHIFT *)
+            | _, _ -> shift p
