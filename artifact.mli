@@ -5,9 +5,7 @@ type t = {
   output : File.Output.t;
   kind : kind;
 }
-val open_output : string -> File.Output.t
 val output_bytes : t -> bytes -> unit
 val close : t -> unit
 val destroy : t -> unit
-val ast_of : string -> string option -> t
-val ast : string -> t
+val of_spec : string -> t

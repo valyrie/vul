@@ -2,6 +2,7 @@
 
 open File
 type kind = Ast
+module Spec = Map.Make(String)
 type t = {dst: string; wrt: string option; output: Output.t; kind: kind}
 let open_output s =
     match s with
@@ -13,13 +14,29 @@ let close a =
     Output.close a.output
 let destroy a =
     Output.destroy a.output
-let parse_wrt s =
+let parse_spec_kind s =
+    match s with
+        "ast" -> Ast
+        | _ -> raise (Invalid_argument "unrecognized artifact kind")
+let parse_spec_is_kind s =
+    match s with
+        "ast" -> true
+        | _ -> false
+let rec parse_spec_list s l =
+    match l with
+        [] -> s
+        | arg :: tl -> match String.split_on_char '=' arg with
+            [k]
+            | ["kind"; k] when parse_spec_is_kind k -> parse_spec_list (Spec.add "kind" k s) tl
+            | ["wrt"; w] -> parse_spec_list (Spec.add "wrt" w s) tl
+            | _ -> raise (Invalid_argument "unknown key-value pair in artifact specification")
+let parse_spec s =
     match String.split_on_char ',' s with
-        [dst; wrt] -> dst, Some wrt
-        | [dst] -> dst, None
-        | _ -> raise (Invalid_argument (String.concat "" ["cannot get wrt of artifact: "; s]))
-let ast_of s w =
-    {dst = s; wrt = w; output = open_output s; kind = Ast}
-let ast s =
-    let (dst, wrt) = parse_wrt s in
-        ast_of dst wrt
+        [] -> raise (Invalid_argument "empty artifact specification")
+        | hd :: tl -> parse_spec_list (Spec.add "path" hd Spec.empty) tl
+let of_spec s =
+    let spec = parse_spec s in
+        {dst = Spec.find "path" spec;
+            wrt = Spec.find_opt "wrt" spec;
+            output = open_output (Spec.find "path" spec);
+            kind = parse_spec_kind (Spec.find "kind" spec)}
