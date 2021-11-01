@@ -59,9 +59,9 @@ let rec parse_opts_argv argv opts =
                     [] -> argv
                     | arg :: rem_tail -> l := !l @ [arg]; parse_opts_argv rem_tail opts
                 end
-                | Append_string_of (l, f) -> match tail with
+                | Append_string_of (l, f) -> begin match tail with
                     [] -> argv
                     | arg :: rem_tail -> l := !l @[f arg]; parse_opts_argv rem_tail opts
-
+                end
 let parse opts =
-    parse_opts_argv (Array.to_list Sys.argv) opts
+    parse_opts_argv (List.tl (Array.to_list Sys.argv)) opts
