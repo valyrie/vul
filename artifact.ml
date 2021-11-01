@@ -7,6 +7,8 @@ let open_output s =
     match s with
         "-" -> Output.stdout
         | _ -> Output.open_path (Path.of_string s |> Path.normalize_partial)
+let output_bytes a b =
+    File.Output.output_bytes a.output b
 let close a =
     Output.close a.output
 let destroy a =
