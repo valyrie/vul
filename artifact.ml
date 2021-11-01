@@ -30,16 +30,17 @@ let rec parse_spec_list s l =
             [k]
             | ["kind"; k] when parse_spec_is_kind k -> parse_spec_list (Spec.add "kind" k s) tl
             | ["wrt"; w] -> parse_spec_list (Spec.add "wrt" w s) tl
-            | _ -> raise (BadSpec (String.concat "" ["unrecognized artifact specification argument: "; arg]))
+            | _ -> raise (BadSpec (String.concat "" ["unrecognized argument: "; arg]))
 let parse_spec s =
     match String.split_on_char ',' s with
         [] -> raise (Invalid_argument "empty artifact specification")
         | hd :: tl -> parse_spec_list (Spec.add "path" hd Spec.empty) tl
 let of_spec s =
-    let spec = parse_spec s in
-        try {dst = Spec.find "path" spec;
+    try let spec = parse_spec s in
+        {dst = Spec.find "path" spec;
             wrt = Spec.find_opt "wrt" spec;
             output = open_output (Spec.find "path" spec);
             kind = parse_spec_kind (Spec.find "kind" spec)}
-        with
-            Not_found -> raise (BadSpec (String.concat "" ["Incomplete artifact specification: "; s]))
+    with
+        Not_found -> raise (BadSpec (String.concat "" ["Incomplete artifact specification: "; s]))
+        | BadSpec e -> raise (BadSpec (String.concat "" [e; " in artifact specification: "; s]))
