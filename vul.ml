@@ -42,6 +42,7 @@ let open_artifact l s =
         | File.Io.FileNotFound e -> Cli.Print.error e; l
         | File.Io.WrongFileOrDir e -> Cli.Print.error e; l
         | File.Io.WriteError e -> Cli.Print.error e; l
+        | Artifact.BadSpec e -> Cli.Print.error e; l
 
 let make_include l s =
     try (File.Path.of_string s

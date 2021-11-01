@@ -1,3 +1,4 @@
+exception BadSpec of string
 type kind = Ast
 type t = {
   dst : string;
