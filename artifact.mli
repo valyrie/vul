@@ -6,5 +6,7 @@ type t = {
   kind : kind;
 }
 val open_output : string -> File.Output.t
+val close : t -> unit
+val destroy : t -> unit
 val ast_of : string -> string option -> t
 val ast : string -> t
