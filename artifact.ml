@@ -11,7 +11,13 @@ let close a =
     Output.close a.output
 let destroy a =
     Output.destroy a.output
+let parse_wrt s =
+    match String.split_on_char ',' s with
+        [dst; wrt] -> dst, Some wrt
+        | [dst] -> dst, None
+        | _ -> raise (Invalid_argument (String.concat "" ["cannot get wrt of artifact: "; s]))
 let ast_of s w =
     {dst = s; wrt = w; output = open_output s; kind = Ast}
 let ast s =
-    ast_of s None
+    let (dst, wrt) = parse_wrt s in
+        ast_of dst wrt
