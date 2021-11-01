@@ -5,6 +5,7 @@ type action =
     | Set_bool of bool ref
     | Inc_int of int ref
     | Append_string of string list ref
+    | Append_string_of of string list ref * (string -> string)
 
 type t =
     {keys: string list; action: action; help: string}
@@ -54,9 +55,13 @@ let rec parse_opts_argv argv opts =
                 Rest -> tail
                 | Set_bool b -> b := true; parse_opts_argv tail opts
                 | Inc_int i -> i := !i + 1; parse_opts_argv tail opts
-                | Append_string l -> match tail with
+                | Append_string l -> begin match tail with
                     [] -> argv
                     | arg :: rem_tail -> l := !l @ [arg]; parse_opts_argv rem_tail opts
+                end
+                | Append_string_of (l, f) -> match tail with
+                    [] -> argv
+                    | arg :: rem_tail -> l := !l @[f arg]; parse_opts_argv rem_tail opts
 
 let parse opts =
     parse_opts_argv (Array.to_list Sys.argv) opts
