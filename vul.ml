@@ -7,7 +7,7 @@ let print_version = ref false
 let print_usage = ref false
 let print_license = ref false
 let verbosity = ref 0
-let (output_paths: string list ref) = ref []
+let (ast_paths: string list ref) = ref []
 let (include_paths: string list ref) = ref []
 let (input_paths: string list ref) = ref []
 
@@ -20,7 +20,7 @@ let opts: Cli.Opt.t list = [
     {keys = ["--usage"]; action = Set_bool print_usage; help = "print usage and exit."};
     {keys = ["--license"]; action = Set_bool print_license; help = "print license and exit."};
     {keys = ["-v"; "--verbose"]; action = Inc_int verbosity; help = "increase verbosity; may be specified multiple times."};
-    {keys = ["-o"; "--output"]; action = Append_string output_paths; help = "specify an output path; may be specified multiple times."};
+    {keys = ["-a"; "--ast"]; action = Append_string ast_paths; help = "specify an ast output; may be specified multiple times."};
     {keys = ["-I"; "--include"]; action = Append_string include_paths; help = "specify a directory to include; may be specified multiple times."};
     {keys = ["--"]; action = Rest; help = "explicitly terminate options."}
 ]
@@ -35,15 +35,12 @@ let help = String.concat "\n" [
 ]
 let source_paths = Cli.Opt.parse opts
 
-let open_output l s =
-    try (File.Path.of_string s
-    |> File.Path.normalize_partial
-    |> File.Output.open_path) :: l with
+let open_ast l s =
+    try Artifact.ast s :: l with
         File.Path.MalformedPath _ -> Cli.Print.error (String.concat "" [s; ": Malformed path"]); l
         | File.Io.FileNotFound e -> Cli.Print.error e; l
         | File.Io.WrongFileOrDir e -> Cli.Print.error e; l
         | File.Io.WriteError e -> Cli.Print.error e; l
-
 let make_include l s =
     try (File.Path.of_string s
     |> File.Path.normalize_partial
@@ -61,15 +58,15 @@ let open_source l s =
         | File.Io.WrongFileOrDir e -> Cli.Print.error e; l
         | File.Io.ReadError e -> Cli.Print.error e; l
 
-let outputs = List.fold_left open_output [] !output_paths
+let artifacts = List.fold_left open_ast [] !ast_paths
 let includes = List.fold_left make_include [] !include_paths
 let sources = List.fold_left open_source [] source_paths
 
 let handle_exit () =
     if !Cli.Print.error_code != 0 then
-        (try List.iter File.Output.destroy outputs with
+        (try List.iter Artifact.destroy artifacts with
             File.Io.WriteError s -> Cli.Print.error s);
-    (try List.iter File.Output.close outputs with
+    (try List.iter Artifact.close artifacts with
         File.Io.WriteError s -> Cli.Print.error s);
     (try List.iter File.Source.close sources with
         File.Io.ReadError s -> Cli.Print.error s);
@@ -98,9 +95,9 @@ try begin begin
                         begin
                             Cli.Print.error "no source file(s) specified"
                         end;
-                    if List.length !output_paths = 0; then
+                    if List.length artifacts = 0; then
                         begin
-                            Cli.Print.error "no output file(s) specified"
+                            Cli.Print.error "no output artifact(s) specified"
                         end;
                     if !Cli.Print.error_code = 0 then
                         Cli.Print.print (String.concat " " source_paths)
