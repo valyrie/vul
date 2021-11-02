@@ -437,14 +437,30 @@ let rec indent i s =
         s
 let rec break s =
     catl [s; "\n"]
-let rec print_expr_inner i s (x: Expr.t) =
-    break @@ indent i @@ match x with
+let rec print_expr_inner ind s (x: Expr.t) =
+    break @@ indent ind @@ match x with
         None -> "None"
         | Incomplete_parse -> "Incompelte_parse"
         (* TODO: ERROR *)
-        | Left_parenthesis l -> catl [print_from l.from; " ("]
-        | Right_parenthesis r -> catl [print_from r.from; " )"]
-        | Quote q -> catl [print_from q.from; " '"]
-        | End_of_line e -> catl [print_from e.from; " \\n"]
-        | Remark r -> catl [print_from r.from; "Remark"]
-        (* TODO *)
+        | Left_parenthesis l -> String.concat " " [print_from l.from; "("]
+        | Right_parenthesis r -> String.concat " " [print_from r.from; ")"]
+        | Quote q -> String.concat " " [print_from q.from; "'"]
+        | End_of_line e -> String.concat " " [print_from e.from; "\\n"]
+        | Remark r -> String.concat " " [print_from r.from; "#[ ... #]"]
+        (* TODO: STRING LITERAL *)
+        (* TODO: NUMERIC LITERAL *)
+        (* TODO: IDENTIFIER *)
+        | Wildcard_identifier i -> String.concat " " [print_from i.from;  "_"]
+        | Pair p -> catl ["Pair\n";
+            print_expr_inner (ind + 1) p.left;
+            print_expr_inner (ind + 1) p.right]
+        | Parentheses p -> catl ["Parentheses\n";
+            print_expr_inner (ind + 1) (Left_parenthesis p.left);
+            print_expr_inner (ind + 1) p.x;
+            print_expr_inner (ind + 1) (Right_parenthesis p.right)]
+        | Unit u -> catl ["Unit\n";
+            print_expr_inner (ind + 1) (Reft_parenthesis u.left);
+            print_expr_inner (ind + 1) (Right_parenthesis u.right)]
+        | Quoted q -> catl ["Quoted\n";
+            print_expr_inner (ind + 1) (Quote q.quote);
+            print_expr_inner (ind + 1) q.x]
