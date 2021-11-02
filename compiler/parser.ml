@@ -48,7 +48,7 @@ module Base = struct
     let of_digit c =
         match of_digit_opt c with
             Some b -> b
-            | None -> raise (Invalid_argument "unknown digit")
+            | None -> raise (Invalid_argument (Printf.sprintf "unknown digit %c" c))
     let is_digit_of c b =
         within (of_digit c) b
     let is_digit c =
@@ -68,7 +68,7 @@ module Sign = struct
     let of_char c =
         match of_char_opt c with
             Some b -> b
-            | None -> raise (Invalid_argument "unknown sign")
+            | None -> raise (Invalid_argument (Printf.sprintf "unknown sign %c" c))
 end
 module rec Expr: sig
     module Error: sig
