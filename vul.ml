@@ -65,6 +65,8 @@ let artifacts = List.fold_left open_artifact [] !artifact_specs
 let includes = List.fold_left make_include [] !include_paths
 let sources = List.fold_left open_source [] source_paths
 
+let emit_artifacts _ =
+    ()
 let handle_exit () =
     if !Cli.Print.error_code != 0 then
         (try List.iter Artifact.destroy artifacts with
@@ -103,7 +105,7 @@ try begin begin
                             Cli.Print.error "no output artifact(s) specified"
                         end;
                     if !Cli.Print.error_code = 0 then
-                        Cli.Print.print (String.concat " " source_paths)
+                        emit_artifacts artifacts
                 end
         end
 end;
