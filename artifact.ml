@@ -20,9 +20,8 @@ let parse_spec_kind s =
         "ast" -> Ast
         | _ -> raise (BadSpec (String.concat "" ["unrecognized artifact kind: "; s]))
 let parse_spec_is_kind s =
-    match s with
-        "ast" -> true
-        | _ -> false
+    try let _ = parse_spec_kind s in true with
+        BadSpec _ -> false
 let rec parse_spec_list s l =
     match l with
         [] -> s
@@ -30,6 +29,7 @@ let rec parse_spec_list s l =
             [k]
             | ["kind"; k] when parse_spec_is_kind k -> parse_spec_list (Spec.add "kind" k s) tl
             | ["wrt"; w] -> parse_spec_list (Spec.add "wrt" w s) tl
+            | [""] -> parse_spec_list s tl
             | _ -> raise (BadSpec (String.concat "" ["unrecognized argument: "; arg]))
 let parse_spec s =
     match String.split_on_char ',' s with
