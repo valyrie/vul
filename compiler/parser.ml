@@ -427,6 +427,14 @@ and parse_expr p: Expr.t =
             | _, _ -> shift p
 let catl l =
     String.concat "" l
+let rec rec_escape_chars s l =
+    match l with
+        [] -> s
+        | hd :: tl -> match hd with
+            c when Char.code c >= 0x20 && Char.code c <= 0x7e -> rec_escape_chars (Bytes.to_string (Lexer.bytes_of_char c)) tl
+            | c -> rec_escape_chars (Printf.sprintf "\x%02x" (Char.code c)) tl
+let escape_bytes b =
+    rec_escape_chars "" (List.of_seq (Bytes.to_seq b))
 let print_from (f: From.t) =
     let open File in
         catl [Path.to_string (Source.path f.source); "<"; string_of_int f.offset; "-"; string_of_int f.stop; ">"]    
@@ -447,9 +455,9 @@ let rec print_expr_inner ind s (x: Expr.t) =
         | Quote q -> String.concat " " [print_from q.from; "'"]
         | End_of_line e -> String.concat " " [print_from e.from; "\\n"]
         | Remark r -> String.concat " " [print_from r.from; "#[ ... #]"]
-        (* TODO: STRING LITERAL *)
+        | String_literal s -> catl [print_from s.from; " \""; escape_bytes s.bytes; "\""]
         (* TODO: NUMERIC LITERAL *)
-        (* TODO: IDENTIFIER *)
+        | Identifier i -> catl [print_from i.from; " i\""; escape_bytes s.bytes; "\""]
         | Wildcard_identifier i -> String.concat " " [print_from i.from;  "_"]
         | Pair p -> catl ["Pair\n";
             print_expr_inner (ind + 1) p.left;
