@@ -431,8 +431,8 @@ let rec rec_escape_chars s l =
     match l with
         [] -> s
         | hd :: tl -> match hd with
-            c when Char.code c >= 0x20 && Char.code c <= 0x7e -> rec_escape_chars (Bytes.to_string (Lexer.bytes_of_char c)) tl
-            | c -> rec_escape_chars (Printf.sprintf "\\x%02x" (Char.code c)) tl
+            c when Char.code c >= 0x20 && Char.code c <= 0x7e -> rec_escape_chars (catl [s; Bytes.to_string (Lexer.bytes_of_char c)]) tl
+            | c -> rec_escape_chars (catl [s; Printf.sprintf "\\x%02x" (Char.code c)]) tl
 let escape_bytes b =
     rec_escape_chars "" (List.of_seq (Bytes.to_seq b))
 let print_from (f: From.t) =
