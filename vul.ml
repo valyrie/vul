@@ -65,12 +65,19 @@ let artifacts = List.fold_left open_artifact [] !artifact_specs
 let includes = List.fold_left make_include [] !include_paths
 let sources = List.fold_left open_source [] source_paths
 
+let rec print_asts l =
+    let open Compiler in
+        match l with
+            [] -> ""
+            | hd :: tl -> String.concat "" [Parser.of_source hd |> Parser.parse_expr |> Parser.print_expr; print_asts tl]
+
+
 let rec emit_artifacts l =
     let open Artifact in
         match l with
             [] -> ()
             | a :: tl -> match a.kind with
-                Ast -> (); emit_artifacts tl
+                Ast -> File.Output.output_bytes a.output @@ Bytes.of_string @@ print_asts sources; emit_artifacts tl
 let handle_exit () =
     if !Cli.Print.error_code != 0 then
         (try List.iter Artifact.destroy artifacts with
