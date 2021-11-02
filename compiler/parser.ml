@@ -488,3 +488,5 @@ let rec print_expr_inner ind (x: Expr.t) =
         | Quoted q -> catl ["Quoted\n";
             print_expr_inner (ind + 1) (Quote q.quote);
             print_expr_inner (ind + 1) q.x]
+let print_expr x =
+    print_expr_inner 0 x

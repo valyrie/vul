@@ -17,7 +17,7 @@ module rec Expr :
         type t =
             Orphaned_structural_token of Expr.t
           | Unclosed_block_remark of From.t
-          | Unknown_escape_sring_literal of From.t
+          | Unknown_escape_string_literal of From.t
           | Unclosed_string_literal of From.t
           | Malformed_number_literal of From.t
           | Forbidden_identifier of From.t
@@ -91,3 +91,4 @@ val of_lexer : Lexer.t -> 'a t
 val of_source : File.Source.t -> 'a t
 val lex_token : 'a t -> 'a t * Expr.t
 val parse_expr : Expr.t t -> Expr.t
+val print_expr : Expr.t -> string
