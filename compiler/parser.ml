@@ -151,7 +151,7 @@ module Lexer = struct
     let is_bad_ident_break c =
         is_iws c || c = '\n'
     let is_implicit_break c =
-        is_bad_ident_break c  || c = '\'' || c = '(' || c = ')'
+        is_bad_ident_break c  || c = '(' || c = ')'
     let is_forbidden_sigil c =
         c = '"'
     let rec skip_iws l =
@@ -425,3 +425,26 @@ and parse_expr p: Expr.t =
             | None, _ -> Incomplete_parse
             (* ELSE: SHIFT *)
             | _, _ -> shift p
+let catl l =
+    String.concat "" l
+let print_from (f: From.t) =
+    let open File in
+        catl [Path.to_string (Source.path f.source); "<"; string_of_int f.offset; "-"; string_of_int f.stop; ">"]    
+let rec indent i s =
+    if i > 0 then
+        catl [" "; s]
+    else
+        s
+let rec break s =
+    catl [s; "\n"]
+let rec print_expr_inner i s (x: Expr.t) =
+    break @@ indent i @@ match x with
+        None -> "None"
+        | Incomplete_parse -> "Incompelte_parse"
+        (* TODO: ERROR *)
+        | Left_parenthesis l -> catl [print_from l.from; " ("]
+        | Right_parenthesis r -> catl [print_from r.from; " )"]
+        | Quote q -> catl [print_from q.from; " '"]
+        | End_of_line e -> catl [print_from e.from; " \\n"]
+        | Remark r -> catl [print_from r.from; "Remark"]
+        (* TODO *)
