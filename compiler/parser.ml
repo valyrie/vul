@@ -75,7 +75,7 @@ module rec Expr: sig
         type t =
             Orphaned_structural_token of Expr.t
             | Unclosed_block_remark of From.t
-            | Unknown_escape_sring_literal of From.t
+            | Unknown_escape_string_literal of From.t
             | Unclosed_string_literal of From.t
             | Malformed_number_literal of From.t
             | Forbidden_identifier of From.t
@@ -224,7 +224,7 @@ module Lexer = struct
             | Some _ -> l, None
     let rec lex_unknown_escape_str_body s l =
         match look l 0 with
-            Some '"' -> advance l 1, Error (Unknown_escape_sring_literal (from s l.offset l.source))
+            Some '"' -> advance l 1, Error (Unknown_escape_string_literal (from s l.offset l.source))
             | Some '\\' -> begin match advance l 1 |> sublex_escape_body with
                 sl, _ -> sl |> lex_unknown_escape_str_body s
             end
@@ -438,6 +438,8 @@ let escape_bytes b =
 let print_from (f: From.t) =
     let open File in
         catl [Path.to_string (Source.path f.source); "<"; string_of_int f.offset; "-"; string_of_int f.stop; ">"]    
+let print_excerpt (f: From.t) =
+    Bytes.to_string @@ File.Source.read_bytes f.source f.offset (f.stop - f.offset)
 let indent i s =
     if i > 0 then
         catl [" "; s]
@@ -445,18 +447,32 @@ let indent i s =
         s
 let break s =
     catl [s; "\n"]
-let rec print_expr_inner ind s (x: Expr.t) =
+let rec print_expr_inner ind (x: Expr.t) =
     break @@ indent ind @@ match x with
         None -> "None"
         | Incomplete_parse -> "Incompelte_parse"
-        (* TODO: ERROR *)
+        | Error e -> begin match e with
+            Orphaned_structural_token t -> catl ["Error: Orphaned_structural_token\n"; print_expr_inner (ind + 1) t]
+            | Unclosed_block_remark f -> catl [print_from f; "Error: Unclosed_block_remark\n"; indent ind @@ print_excerpt f]
+            | Unknown_escape_string_literal f -> catl [print_from f; "Error: Unknown_escape_string_literal\n"; indent ind @@ print_excerpt f]
+            | Unclosed_string_literal f -> catl [print_from f; "Error: Unclosed_string_literal\n"; indent ind @@ print_excerpt f]
+            | Malformed_number_literal f -> catl [print_from f; "Error: Malformed_number_literal\n"; indent ind @@ print_excerpt f]
+            | Forbidden_identifier f -> catl [print_from f; "Error: Forbidden_identifier\n"; indent ind @@ print_excerpt f]
+            | Unknown_escape_identifier f -> catl [print_from f; "Error: Unknown_escape_identifier\n"; indent ind @@ print_excerpt f]
+            | Unclosed_identifier f -> catl [print_from f; "Error: Unclosed_identifier\n"; indent ind @@ print_excerpt f]
+            | Unclosed_parenthesis (l, x) -> catl ["Unclosed_parenthesis\n";
+                print_expr_inner (ind + 1) (Left_parenthesis l);
+                print_expr_inner (ind + 1) x]
+        end
         | Left_parenthesis l -> String.concat " " [print_from l.from; "("]
         | Right_parenthesis r -> String.concat " " [print_from r.from; ")"]
         | Quote q -> String.concat " " [print_from q.from; "'"]
         | End_of_line e -> String.concat " " [print_from e.from; "\\n"]
         | Remark r -> String.concat " " [print_from r.from; "#[ ... #]"]
         | String_literal s -> catl [print_from s.from; " \""; escape_bytes s.bytes; "\""]
-        (* TODO: NUMERIC LITERAL *)
+        | Integer_literal i -> catl [print_from i.from; " "; (match i.sign with Negative -> "-" | Positive -> "+");
+            "0"; (match i.base with Binary -> "b" | Octal -> "q" | Decimal -> "d" | Hexadecimal -> "x");
+            Bytes.to_string i.digits]
         | Identifier i -> catl [print_from i.from; " i\""; escape_bytes i.bytes; "\""]
         | Wildcard_identifier i -> String.concat " " [print_from i.from;  "_"]
         | Pair p -> catl ["Pair\n";
@@ -467,7 +483,7 @@ let rec print_expr_inner ind s (x: Expr.t) =
             print_expr_inner (ind + 1) p.x;
             print_expr_inner (ind + 1) (Right_parenthesis p.right)]
         | Unit u -> catl ["Unit\n";
-            print_expr_inner (ind + 1) (Reft_parenthesis u.left);
+            print_expr_inner (ind + 1) (Left_parenthesis u.left);
             print_expr_inner (ind + 1) (Right_parenthesis u.right)]
         | Quoted q -> catl ["Quoted\n";
             print_expr_inner (ind + 1) (Quote q.quote);
