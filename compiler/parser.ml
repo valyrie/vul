@@ -385,8 +385,6 @@ let rec consume p n =
 let v_la p =
     match lex_token p with
         _, t -> t
-let state_of p =
-    v_la p, p.v
 let rec shift p =
     let (p, t) = lex_token p in
         push t p |> parse_expr
@@ -396,7 +394,7 @@ and drop n p =
     consume p n |> parse_expr
 and parse_expr p: Expr.t =
     let open Expr in
-        match state_of p with
+        match v_la p, p.v with
             (* CONSUME LINE ENDINGS *)
             _, (End_of_line _) :: _ -> drop 1 p
             (* CONSUME REMARKS *)
