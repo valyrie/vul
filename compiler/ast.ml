@@ -1,8 +1,9 @@
 (* AST types *)
 
+open File
 module From = struct
     type t =
-        {offset: int64; stop: int64; source: File.Source.t}
+        {offset: int64; stop: int64; source: Source.t}
 end
 module rec Expr : sig
     type t =
