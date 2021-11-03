@@ -3,7 +3,7 @@
 open File
 module From = struct
     type t =
-        {offset: int64; stop: int64; source: Source.t}
+        {offset: int; stop: int; source: Source.t}
 end
 module rec Expr : sig
     type t =
