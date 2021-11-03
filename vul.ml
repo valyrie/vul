@@ -122,4 +122,4 @@ try begin begin
 end;
     handle_exit ()
 end with
-    x -> Cli.Print.error (String.concat "" ["uncaught exception: "; (Printexc.to_string x)]); handle_exit ()
+    x -> Printexc.print_backtrace stderr; flush stderr; Cli.Print.error (String.concat "" ["uncaught exception: "; (Printexc.to_string x)]); handle_exit ()
