@@ -401,10 +401,6 @@ and parse_expr p: Expr.t =
             _, (End_of_line _) :: _ -> drop 1 p
             (* CONSUME REMARKS *)
             | _, (Remark _) :: _ -> drop 1 p
-            (* REDUCE UNIT *)
-            | _, (Right_parenthesis r) :: (Left_parenthesis l) :: _ -> reduce 2 (Unit {left = l; right = r}) p
-            (* REDUCE PARENS *)
-            | _, (Right_parenthesis r) :: x :: (Left_parenthesis l) :: _ -> reduce 3 (Parentheses {x = x; left = l; right = r}) p
             (* REDUCE QUOTED *)
             | _, x :: (Quote q) :: _ when is_quotable x -> reduce 2 (Quoted {x = x; quote = q}) p
             (* ORPHAN EMPTY QUOTE *)
@@ -412,6 +408,10 @@ and parse_expr p: Expr.t =
                 |> push (Error (Error.Orphaned_structural_token (Quote q)))
                 |> push x
                 |> parse_expr
+            (* REDUCE UNIT *)
+            | _, (Right_parenthesis r) :: (Left_parenthesis l) :: _ -> reduce 2 (Unit {left = l; right = r}) p
+            (* REDUCE PARENS *)
+            | _, (Right_parenthesis r) :: x :: (Left_parenthesis l) :: _ -> reduce 3 (Parentheses {x = x; left = l; right = r}) p
             (* REDUCE PAIR *)
             | _, r :: l :: _ when not (is_structural r) && not (is_structural l) -> reduce 2 (Pair {left = l; right = r}) p
             (* ORPHAN LONELY SIGILS *)
