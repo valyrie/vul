@@ -6,18 +6,24 @@ module From = struct
         {offset: int; stop: int; source: Source.t}
 end
 module rec Expr : sig
+    type cons = {left: Expr.t; right: Expr.t}
+    type identifier = {bytes: bytes; from: From.t}
+    type left_parenthesis = {from: From.t}
+    type right_parenthesis = {from: From.t}
+    type unit = {left: left_parenthesis; right: right_parenthesis}
+    type parentheses = {x: Expr.t; left: left_parenthesis; right: right_parenthesis}
     type t =
         (* avoid having to wrap in an option type *)
         None
         (* cons *)
-        | Cons of {left: Expr.t; right: Expr.t}
+        | Cons of cons
         (* identifiers *)
-        | Identifier of {bytes: bytes; from: From.t}
+        | Identifier of identifier
         (* parentheses *)
-        | Left_parenthesis of {from: From.t}
-        | Right_parenthesis of {from: From.t}
-        | Unit of {left: Expr.t; right: Expr.t}
-        | Parentheses of {x: Expr.t; left: Expr.t; right: Expr.t}
+        | Left_parenthesis of left_parenthesis
+        | Right_parenthesis of right_parenthesis
+        | Unit of unit
+        | Parentheses of parentheses
 end = Expr
 open Expr
 let is_atom x =
