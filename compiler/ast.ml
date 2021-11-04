@@ -19,3 +19,13 @@ module rec Expr : sig
         | Unit of {left: Expr.t; right: Expr.t}
         | Parentheses of {x: Expr.t; left: Expr.t; right: Expr.t}
 end = Expr
+open Expr
+let is_atom x =
+    match x with
+        Identifier _ -> true
+        | _ -> false
+let is_structural x =
+    match x with
+        Left_parenthesis _
+        | Right_parenthesis _ -> true
+        | _ -> false
