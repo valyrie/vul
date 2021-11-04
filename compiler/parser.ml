@@ -17,7 +17,7 @@ let advance p n =
 let is_iws c =
     c = ' ' || c = '\t'
 let is_break c =
-    is_iws c || c = '\n' || c = '\r'
+    is_iws c || c = '\n' || c = '\r' || c = '(' || c = ')'
 let rec skip_iws p =
     match look p 0 with
         Some c when is_iws c -> advance p 1 |> skip_iws
