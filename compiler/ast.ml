@@ -11,9 +11,6 @@ module rec Expr : sig
         None
         (* cons *)
         | Cons of {left: Expr.t; right: Expr.t}
-        (* structural whitespace tokens *)
-        | End_of_line of {from: From.t}
-        | Whitespace_break of {from: From.t}
         (* identifiers *)
         | Identifier of {bytes: bytes; from: From.t}
         (* parentheses *)
