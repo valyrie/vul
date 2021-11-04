@@ -48,8 +48,11 @@ let is_expr x =
 let rec print_expr ?indent:(indent=0) x =
     let open Printf in
     let open File in
-    let print_from (f: From.t) = 
-        sprintf "<%s:%d-%d>" (Source.path f.source |> Path.to_string) f.offset f.stop in
+    let print_from (f: From.t) =
+        if f.stop - f.offset > 1 then
+            sprintf "%s:[%d-%d]:" (Source.path f.source |> Path.to_string) f.offset (f.stop - 1)
+        else
+            sprintf "%s:%d:" (Source.path f.source |> Path.to_string) f.offset in
     let print_bytes b =
         Bytes.to_string b |> String.escaped in
     sprintf "%s%s\n" (String.make indent ' ') @@ String.trim
