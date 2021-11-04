@@ -37,7 +37,7 @@ let read_bytes src off len =
           else
             Bytes.empty
 let read_byte src off =
-  if load src off > off then
+  if load src (off + 1) > off then
     Some (Bytes.get src.buffer off)
   else
     None
