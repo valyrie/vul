@@ -50,7 +50,10 @@ let la1 p =
         x
 let rec shift p =
     let (px, x) = lex_token p in
-        push x px |> parse_expr
+        if x != None then
+            push x px |> parse_expr
+        else
+            parse_expr p
 and reduce n x p =
     drop n p |> push x |> parse_expr
 and parse_expr p: Expr.t =
