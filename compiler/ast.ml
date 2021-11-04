@@ -6,6 +6,7 @@ module From = struct
         {offset: int; stop: int; source: Source.t}
 end
 module rec Expr : sig
+    type orphaned_structural_token = {x: Expr.t}
     type cons = {left: Expr.t; right: Expr.t}
     type identifier = {bytes: bytes; from: From.t}
     type left_parenthesis = {from: From.t}
@@ -15,6 +16,8 @@ module rec Expr : sig
     type t =
         (* avoid having to wrap in an option type *)
         None
+        (* orphaned structural tokens *)
+        | Orphaned_structural_token of orphaned_structural_token
         (* cons *)
         | Cons of cons
         (* identifiers *)
