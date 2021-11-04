@@ -29,7 +29,7 @@ let read_bytes src off len =
   let requested_load = off + len in
     let _ = load src (max (requested_load - (Bytes.length src.buffer)) 0) in
       let available_bytes = Bytes.length src.buffer in
-        if requested_load >= available_bytes then
+        if available_bytes >= requested_load then
           Bytes.sub src.buffer off len
         else
           if off < available_bytes then
