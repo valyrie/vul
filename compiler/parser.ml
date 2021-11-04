@@ -63,7 +63,10 @@ and parse_expr p: Expr.t =
         (* REDUCE PARENS *)
         | _, (Right_parenthesis r) :: x :: (Left_parenthesis l) :: _ -> reduce 3 (Parentheses {x = x; left = l; right = r}) p
         (* REDUCE CONS *)
-        | _, r :: l :: _ when not (is_structural r) && not (is_structural l) -> reduce 2 (Cons {left = l; right = r}) p
+        | la, r :: l :: _ when
+            not (is_structural r)
+            && not (is_structural l)
+            && not (is_expr la) -> reduce 2 (Cons {left = l; right = r}) p
         (* REDUCE ORPHANED TOKENS *)
         | None, x :: _ when is_structural x -> reduce 1 (Orphaned_structural_token {x = x}) p
         (* RETURN *)

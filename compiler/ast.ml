@@ -38,6 +38,13 @@ let is_structural x =
         Left_parenthesis _
         | Right_parenthesis _ -> true
         | _ -> false
+let is_expr x =
+    match x with
+        Orphaned_structural_token _
+        | Cons _
+        | Unit _
+        | Parentheses _ -> true
+        | _ -> is_atom x
 let rec print_expr ?indent:(indent=0) x =
     let open Printf in
     let open File in
