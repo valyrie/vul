@@ -8,7 +8,7 @@ end
 module rec Expr : sig
     type orphaned_structural_token = {x: Expr.t}
     type cons = {left: Expr.t; right: Expr.t}
-    type identifier = {bytes: bytes; from: From.t}
+    type identifier = {bytes: Bytestring.t; from: From.t}
     type left_parenthesis = {from: From.t}
     type right_parenthesis = {from: From.t}
     type unit = {left: left_parenthesis; right: right_parenthesis}
@@ -60,14 +60,16 @@ let rec print_expr ?indent:(indent=0) x =
             sprintf "%s:[%d-%d]:" (Source.path f.source |> Path.to_string) f.offset (f.stop - 1)
         else
             sprintf "%s:%d:" (Source.path f.source |> Path.to_string) f.offset in
-    let print_bytes b =
-        Bytes.to_string b |> String.escaped in
     sprintf "%s%s\n" (String.make indent ' ') @@ String.trim
         begin match x with
             None -> "None"
             | Orphaned_structural_token o -> sprintf "Orphaned_structural_token\n%s" (print_expr ~indent:(indent + 1) o.x)
             | Cons c -> sprintf "Cons\n%s%s" (print_expr ~indent:(indent + 1) c.left) (print_expr ~indent:(indent + 1) c.right)
-            | Identifier i -> sprintf "%s Identifier \"%s\"" (print_from i.from) (print_bytes i.bytes)
+            | Identifier i -> sprintf "%s Identifier %s" (print_from i.from)
+                (if Bytestring.is_printable i.bytes then 
+                    Bytestring.to_string i.bytes
+                else
+                    sprintf "i\"%s\"" @@ Bytestring.escaped_str_of i.bytes)
             | Left_parenthesis l -> sprintf "%s (" (print_from l.from)
             | Right_parenthesis r -> sprintf "%s )" (print_from r.from)
             | Unit u -> sprintf "Unit\n%s%s"

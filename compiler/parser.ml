@@ -30,7 +30,7 @@ let rec skip_iws p =
 let rec lex_ident_body s p: t * Expr.t =
     match look p 0 with
         Some c when not (is_break c) -> advance p 1 |> lex_ident_body s
-        | _ -> p, Identifier {bytes = Source.read_bytes s.source s.offset (p.offset - s.offset); from = make_from s p}
+        | _ -> p, Identifier {bytes = Bytestring.of_bytes @@ Source.read_bytes s.source s.offset (p.offset - s.offset); from = make_from s p}
 let lex_token p: t * Expr.t =
     let p = skip_iws p in
     match look p 0 with
