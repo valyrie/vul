@@ -37,6 +37,7 @@ let lex_token p: t * Expr.t =
         None -> p, None
         | Some '(' -> advance p 1, Left_parenthesis {from = make_from1 p}
         | Some ')' -> advance p 1, Right_parenthesis {from = make_from1 p}
+        | Some '\'' -> advance p 1, Quote {from = make_from1 p}
         | Some _ -> advance p 1 |> lex_ident_body p
 let push x p =
     {p with v = x :: p.v}
@@ -58,6 +59,9 @@ and reduce n x p =
     drop n p |> push x |> parse_expr
 and parse_expr p: Expr.t =
     match (la1 p, p.v) with
+        (* REDUCE QUOTE *)
+        | _, x :: (Quote q) :: _ when is_expr x -> reduce 2 (Quoted {x = x; quote = q}) p
+        | Right_parenthesis _, (Quote q) :: _ -> reduce 1 (Orphaned_structural_token {x = Quote q}) p
         (* REDUCE UNIT *)
         | _, (Right_parenthesis r) :: (Left_parenthesis l) :: _ -> reduce 2 (Unit {left = l; right = r}) p
         (* REDUCE PARENS *)

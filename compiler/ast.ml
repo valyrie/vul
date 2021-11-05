@@ -13,6 +13,8 @@ module rec Expr : sig
     type right_parenthesis = {from: From.t}
     type unit = {left: left_parenthesis; right: right_parenthesis}
     type parentheses = {x: Expr.t; left: left_parenthesis; right: right_parenthesis}
+    type quote = {from: From.t}
+    type quoted = {x: Expr.t; quote: quote}
     type t =
         (* avoid having to wrap in an option type *)
         None
@@ -27,6 +29,9 @@ module rec Expr : sig
         | Right_parenthesis of right_parenthesis
         | Unit of unit
         | Parentheses of parentheses
+        (* quote *)
+        | Quote of quote
+        | Quoted of quoted
 end = Expr
 open Expr
 let is_atom x =
@@ -36,14 +41,16 @@ let is_atom x =
 let is_structural x =
     match x with
         Left_parenthesis _
-        | Right_parenthesis _ -> true
+        | Right_parenthesis _
+        | Quote _ -> true
         | _ -> false
 let is_expr x =
     match x with
         Orphaned_structural_token _
         | Cons _
         | Unit _
-        | Parentheses _ -> true
+        | Parentheses _
+        | Quoted _ -> true
         | _ -> is_atom x
 let rec print_expr ?indent:(indent=0) x =
     let open Printf in
@@ -70,4 +77,8 @@ let rec print_expr ?indent:(indent=0) x =
                 (print_expr ~indent:(indent + 1) (Left_parenthesis p.left))
                 (print_expr ~indent:(indent + 1) p.x)
                 (print_expr ~indent:(indent + 1) (Right_parenthesis p.right))
+            | Quote q -> sprintf "%s '" (print_from q.from)
+            | Quoted q -> sprintf "Quoted\n%s%s"
+                (print_expr ~indent:(indent + 1) (Quote q.quote))
+                (print_expr ~indent:(indent + 1) q.x)
         end
