@@ -60,6 +60,11 @@ let is_expr x =
         | Parentheses _
         | Quoted _ -> true
         | _ -> is_atom x
+let is_cons_break x =
+    match x with
+        Right_parenthesis _
+        | None -> true
+        | _ -> false
 let rec print_expr ?indent:(indent=0) x =
     let open Printf in
     let open File in

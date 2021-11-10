@@ -104,7 +104,7 @@ and parse_expr p: Expr.t =
         | la, r :: l :: _ when
             not (is_structural r)
             && not (is_structural l)
-            && not (is_expr la) -> reduce 2 (Cons {left = l; right = r}) p
+            && is_cons_break la -> reduce 2 (Cons {left = l; right = r}) p
         (* REDUCE ORPHANED TOKENS *)
         | None, x :: _ when is_structural x -> reduce 1 (Orphaned_structural_token {x = x}) p
         (* RETURN *)
