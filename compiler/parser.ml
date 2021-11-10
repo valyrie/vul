@@ -23,6 +23,10 @@ let is_digit c =
         '0' | '1' | '2' | '3' | '4'
         | '5' | '6' | '7' | '8' | '9' -> true
         | _ -> false
+let is_digit_or_spacer c =
+    match c with
+        '_' -> true
+        | _ -> is_digit c
 let rec skip_iws p =
     match look p 0 with
         Some c when is_iws c -> advance p 1 |> skip_iws
@@ -43,10 +47,13 @@ let rec lex_malformed_token_body s p: t * Expr.t =
 let rec get_number_body b z =
     let open Numbers in
     if Bytes.length b > 0 then
-        get_number_body (Bytes.sub b 1 @@ Bytes.length b - 1) 
-            @@ Z.trim
-            @@ Z.add (Z.of_i32 @@ Int32.of_string @@ Bytes.sub_string b 0 1)
-            @@ Z.mul z @@ Z.of_int 10
+        if Bytes.get b 0 != '_' then
+            get_number_body (Bytes.sub b 1 @@ Bytes.length b - 1) 
+                @@ Z.trim
+                @@ Z.add (Z.of_i32 @@ Int32.of_string @@ Bytes.sub_string b 0 1)
+                @@ Z.mul z @@ Z.of_int 10
+        else
+            get_number_body (Bytes.sub b 1 @@ Bytes.length b - 1) z
     else
         z
 let get_number b =
@@ -54,7 +61,7 @@ let get_number b =
         get_number_body b Z.zero
 let rec lex_number_body s p =
     match look p 0 with
-        Some c when is_digit c -> advance p 1 |> lex_number_body s
+        Some c when is_digit_or_spacer c -> advance p 1 |> lex_number_body s
         | Some c when not @@ is_break c -> lex_malformed_token_body s p
         | _ -> p, Number {z = get_number @@ Source.read_bytes s.source s.offset (p.offset - s.offset); from = make_from s p}
 let lex_token p: t * Expr.t =
