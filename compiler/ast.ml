@@ -7,6 +7,7 @@ module From = struct
 end
 module rec Expr : sig
     type orphaned_structural_token = {x: Expr.t}
+    type malformed_token = {bytes: Bytestring.t; from: From.t}
     type cons = {left: Expr.t; right: Expr.t}
     type identifier = {bytes: Bytestring.t; from: From.t}
     type left_parenthesis = {from: From.t}
@@ -15,14 +16,17 @@ module rec Expr : sig
     type parentheses = {x: Expr.t; left: left_parenthesis; right: right_parenthesis}
     type quote = {from: From.t}
     type quoted = {x: Expr.t; quote: quote}
+    type number = {z: Numbers.Z.t; from: From.t}
     type t =
         (* avoid having to wrap in an option type *)
         None
-        (* orphaned structural tokens *)
+        (* orphaned structural token *)
         | Orphaned_structural_token of orphaned_structural_token
+        (* malformed literal token *)
+        | Malformed_token of malformed_token
         (* cons *)
         | Cons of cons
-        (* identifiers *)
+        (* identifier *)
         | Identifier of identifier
         (* parentheses *)
         | Left_parenthesis of left_parenthesis
@@ -32,11 +36,15 @@ module rec Expr : sig
         (* quote *)
         | Quote of quote
         | Quoted of quoted
+        (* numeric literal *)
+        | Number of number
 end = Expr
 open Expr
 let is_atom x =
     match x with
-        Identifier _ -> true
+        Malformed_token _
+        | Identifier _
+        | Number _ -> true
         | _ -> false
 let is_structural x =
     match x with
@@ -64,6 +72,9 @@ let rec print_expr ?indent:(indent=0) x =
         begin match x with
             None -> "None"
             | Orphaned_structural_token o -> sprintf "Orphaned_structural_token\n%s" (print_expr ~indent:(indent + 1) o.x)
+            | Malformed_token t -> sprintf "%s Malformed_token \"%s\""
+                (print_from t.from)
+                (Bytestring.escaped_str_of t.bytes)
             | Cons c -> sprintf "Cons\n%s%s" (print_expr ~indent:(indent + 1) c.left) (print_expr ~indent:(indent + 1) c.right)
             | Identifier i -> sprintf "%s Identifier %s" (print_from i.from)
                 (if Bytestring.is_printable i.bytes then 
@@ -83,4 +94,7 @@ let rec print_expr ?indent:(indent=0) x =
             | Quoted q -> sprintf "Quoted\n%s%s"
                 (print_expr ~indent:(indent + 1) (Quote q.quote))
                 (print_expr ~indent:(indent + 1) q.x)
+            | Number n -> sprintf "%s Number %s"
+                (print_from n.from)
+                (Numbers.Z.to_string n.z)
         end
