@@ -44,6 +44,7 @@ let is_atom x =
     match x with
         Malformed_token _
         | Identifier _
+        | Unit _
         | Number _ -> true
         | _ -> false
 let is_structural x =
@@ -56,7 +57,6 @@ let is_expr x =
     match x with
         Orphaned_structural_token _
         | Cons _
-        | Unit _
         | Parentheses _
         | Quoted _ -> true
         | _ -> is_atom x
