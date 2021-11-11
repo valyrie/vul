@@ -1,6 +1,5 @@
 (* AST types *)
 
-open File
 module From = struct
     open File
     type t =
