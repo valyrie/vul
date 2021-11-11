@@ -1,5 +1,8 @@
 module From :
-  sig type t = { offset : int; stop : int; source : File.Source.t; } end
+  sig
+    type t = { offset : int; stop : int; source : File.Source.t; }
+    val print : t -> string
+  end
 module rec Expr :
   sig
     type orphaned_structural_token = { x : Expr.t; }

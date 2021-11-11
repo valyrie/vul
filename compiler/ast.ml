@@ -2,8 +2,15 @@
 
 open File
 module From = struct
+    open File
     type t =
         {offset: int; stop: int; source: Source.t}
+    let print (f: t) =
+        let open Printf in
+        if f.stop - f.offset > 1 then
+            sprintf "%s:[%d-%d]:" (Source.path f.source |> Path.to_string) f.offset (f.stop - 1)
+        else
+            sprintf "%s:%d:" (Source.path f.source |> Path.to_string) f.offset
 end
 module rec Expr : sig
     type orphaned_structural_token = {x: Expr.t}
@@ -67,27 +74,24 @@ let is_cons_break x =
         | _ -> false
 let rec print_expr ?indent:(indent=0) x =
     let open Printf in
-    let open File in
-    let print_from (f: From.t) =
-        if f.stop - f.offset > 1 then
-            sprintf "%s:[%d-%d]:" (Source.path f.source |> Path.to_string) f.offset (f.stop - 1)
-        else
-            sprintf "%s:%d:" (Source.path f.source |> Path.to_string) f.offset in
     sprintf "%s%s\n" (String.make indent ' ') @@ String.trim
         begin match x with
             None -> "None"
-            | Orphaned_structural_token o -> sprintf "Orphaned_structural_token\n%s" (print_expr ~indent:(indent + 1) o.x)
+            | Orphaned_structural_token o -> sprintf "Orphaned_structural_token\n%s"
+                (print_expr ~indent:(indent + 1) o.x)
             | Malformed_token t -> sprintf "%s Malformed_token \"%s\""
-                (print_from t.from)
+                (From.print t.from)
                 (Bytestring.escaped_str_of t.bytes)
-            | Cons c -> sprintf "Cons\n%s%s" (print_expr ~indent:(indent + 1) c.left) (print_expr ~indent:(indent + 1) c.right)
-            | Identifier i -> sprintf "%s Identifier %s" (print_from i.from)
+            | Cons c -> sprintf "Cons\n%s%s"
+                (print_expr ~indent:(indent + 1) c.left)
+                (print_expr ~indent:(indent + 1) c.right)
+            | Identifier i -> sprintf "%s Identifier %s" (From.print i.from)
                 (if Bytestring.is_printable i.bytes then 
                     Bytestring.to_string i.bytes
                 else
                     sprintf "i\"%s\"" @@ Bytestring.escaped_str_of i.bytes)
-            | Left_parenthesis l -> sprintf "%s (" (print_from l.from)
-            | Right_parenthesis r -> sprintf "%s )" (print_from r.from)
+            | Left_parenthesis l -> sprintf "%s (" (From.print l.from)
+            | Right_parenthesis r -> sprintf "%s )" (From.print r.from)
             | Unit u -> sprintf "Unit\n%s%s"
                 (print_expr ~indent:(indent + 1) (Left_parenthesis u.left))
                 (print_expr ~indent:(indent + 1) (Right_parenthesis u.right))
@@ -95,11 +99,11 @@ let rec print_expr ?indent:(indent=0) x =
                 (print_expr ~indent:(indent + 1) (Left_parenthesis p.left))
                 (print_expr ~indent:(indent + 1) p.x)
                 (print_expr ~indent:(indent + 1) (Right_parenthesis p.right))
-            | Quote q -> sprintf "%s '" (print_from q.from)
+            | Quote q -> sprintf "%s '" (From.print q.from)
             | Quoted q -> sprintf "Quoted\n%s%s"
                 (print_expr ~indent:(indent + 1) (Quote q.quote))
                 (print_expr ~indent:(indent + 1) q.x)
             | Number n -> sprintf "%s Number %s"
-                (print_from n.from)
+                (From.print n.from)
                 (Numbers.Z.to_string n.z)
         end
