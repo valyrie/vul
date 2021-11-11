@@ -30,3 +30,5 @@ let unescaped_of_str s =
     {bytes = Bytes.of_string @@ Scanf.unescaped s}
 let escaped_str_of t =
     String.escaped @@ Bytes.to_string t.bytes
+let compare a b =
+    Bytes.compare (to_bytes a) (to_bytes b)

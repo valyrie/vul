@@ -8,3 +8,4 @@ val unescaped_of_bytes : bytes -> t
 val escaped_bytes_of : t -> bytes
 val unescaped_of_str : string -> t
 val escaped_str_of : t -> string
+val compare : t -> t -> int
