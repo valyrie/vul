@@ -4,10 +4,10 @@ open Ast
 open File
 type t =
     {v: Expr.t list; offset: int; source: Source.t}
-let make_from off stop: From.t =
-    {offset = off.offset; stop = stop.offset; source = off.source}
-let make_from1 off: From.t =
-    {offset = off.offset; stop = off.offset + 1; source = off.source}
+let make_from off stop: From.t option =
+    Some {offset = off.offset; stop = stop.offset; source = off.source}
+let make_from1 off: From.t option =
+    Some {offset = off.offset; stop = off.offset + 1; source = off.source}
 let of_source s =
     {v = []; offset = 0; source = s}
 let look p n =

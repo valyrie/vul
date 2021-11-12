@@ -4,27 +4,30 @@ module From = struct
     open File
     type t =
         {offset: int; stop: int; source: Source.t}
-    let print (f: t) =
+    let print f =
         let open Printf in
-        if f.stop - f.offset > 1 then
-            sprintf "%s:[%d-%d]:" (Source.path f.source |> Path.to_string) f.offset (f.stop - 1)
-        else
-            sprintf "%s:%d:" (Source.path f.source |> Path.to_string) f.offset
+        match f with
+            None -> "_"
+            | Some f ->
+                if f.stop - f.offset > 1 then
+                sprintf "%s:[%d-%d]:" (Source.path f.source |> Path.to_string) f.offset (f.stop - 1)
+            else
+                sprintf "%s:%d:" (Source.path f.source |> Path.to_string) f.offset
 end
 module Expr = struct
     open Numbers
     [@@@ocaml.warning "-30"]
     type orphaned_structural_token = {x: t}
-    and malformed_token = {bytes: Bytestring.t; from: From.t}
+    and malformed_token = {bytes: Bytestring.t; from: From.t option}
     and cons = {left: t; right: t}
-    and identifier = {bytes: Bytestring.t; from: From.t}
-    and left_parenthesis = {from: From.t}
-    and right_parenthesis = {from: From.t}
+    and identifier = {bytes: Bytestring.t; from: From.t option}
+    and left_parenthesis = {from: From.t option}
+    and right_parenthesis = {from: From.t option}
     and unit = {left: left_parenthesis; right: right_parenthesis}
     and parentheses = {x: t; left: left_parenthesis; right: right_parenthesis}
-    and quote = {from: From.t}
+    and quote = {from: From.t option}
     and quoted = {x: t; quote: quote}
-    and number = {z: Z.t; from: From.t}
+    and number = {z: Z.t; from: From.t option}
     and t =
         (* avoid having to wrap in an option type *)
         None
@@ -72,6 +75,10 @@ module Expr = struct
             Right_parenthesis _
             | None -> true
             | _ -> false
+    let rec fold_left f i x =
+        match x with
+            Cons c -> fold_left f (f i c.left) c.right 
+            | _ -> f i x
     let rec print ?indent:(indent=0) x =
     let open Printf in
     sprintf "%s%s\n" (String.make indent ' ') @@ String.trim
