@@ -69,7 +69,7 @@ let rec print_asts l =
     let open Compiler in
         match l with
             [] -> ""
-            | hd :: tl -> String.concat "" [Parser.of_source hd |> Parser.parse_expr |> Ast.print_expr; print_asts tl]
+            | hd :: tl -> String.concat "" [Parser.of_source hd |> Parser.parse_expr |> Ast.Expr.print; print_asts tl]
 
 
 let rec emit_artifacts l =
