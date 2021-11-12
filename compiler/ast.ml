@@ -45,33 +45,32 @@ module rec Expr : sig
         (* numeric literal *)
         | Number of number
 end = Expr
-open Expr
-let is_atom x =
+let is_atom (x: Expr.t) =
     match x with
         Malformed_token _
         | Identifier _
         | Unit _
         | Number _ -> true
         | _ -> false
-let is_structural x =
+let is_structural (x: Expr.t) =
     match x with
         Left_parenthesis _
         | Right_parenthesis _
         | Quote _ -> true
         | _ -> false
-let is_expr x =
+let is_expr (x: Expr.t) =
     match x with
         Orphaned_structural_token _
         | Cons _
         | Parentheses _
         | Quoted _ -> true
         | _ -> is_atom x
-let is_cons_break x =
+let is_cons_break (x: Expr.t) =
     match x with
         Right_parenthesis _
         | None -> true
         | _ -> false
-let rec print_expr ?indent:(indent=0) x =
+let rec print_expr ?indent:(indent=0) (x: Expr.t) =
     let open Printf in
     sprintf "%s%s\n" (String.make indent ' ') @@ String.trim
         begin match x with
