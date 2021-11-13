@@ -39,6 +39,7 @@ module Expr :
     val is_structural : t -> bool
     val is_expr : t -> bool
     val is_cons_break : t -> bool
+    val is_cons : t -> bool
     val fold_left : ('a -> t -> 'a) -> 'a -> t -> 'a
     val print : ?indent:int -> t -> string
   end
