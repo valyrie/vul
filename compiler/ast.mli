@@ -6,7 +6,7 @@ module From :
 module Expr :
   sig
     [@@@ocaml.warning "-30"]
-    type orphaned_structural_token = { x : t; }
+    type orphaned_expr = { x : t; }
     and malformed_token = { bytes : Bytestring.t; from : From.t option; }
     and cons = { left : t; right : t; }
     and identifier = { bytes : Bytestring.t; from : From.t option; }
@@ -23,7 +23,7 @@ module Expr :
     and number = { z : Numbers.Z.t; from : From.t option; }
     and t =
         None
-      | Orphaned_structural_token of orphaned_structural_token
+      | Orphaned_expr of orphaned_expr
       | Malformed_token of malformed_token
       | Cons of cons
       | Identifier of identifier

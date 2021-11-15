@@ -17,7 +17,7 @@ end
 module Expr = struct
     open Numbers
     [@@@ocaml.warning "-30"]
-    type orphaned_structural_token = {x: t}
+    type orphaned_expr = {x: t}
     and malformed_token = {bytes: Bytestring.t; from: From.t option}
     and cons = {left: t; right: t}
     and identifier = {bytes: Bytestring.t; from: From.t option}
@@ -31,8 +31,8 @@ module Expr = struct
     and t =
         (* avoid having to wrap in an option type *)
         None
-        (* orphaned structural token *)
-        | Orphaned_structural_token of orphaned_structural_token
+        (* orphaned *)
+        | Orphaned_expr of orphaned_expr
         (* malformed literal token *)
         | Malformed_token of malformed_token
         (* cons *)
@@ -65,7 +65,7 @@ module Expr = struct
             | _ -> false
     let is_expr x =
         match x with
-            Orphaned_structural_token _
+            Orphaned_expr _
             | Cons _
             | Parentheses _
             | Quoted _ -> true
@@ -88,9 +88,9 @@ module Expr = struct
     sprintf "%s%s\n" (String.make indent ' ') @@ String.trim
         begin match x with
             None -> "None"
-            | Orphaned_structural_token o -> sprintf "Orphaned_structural_token\n%s"
+            | Orphaned_expr o -> sprintf "Orphaned_expr\n%s"
                 (print ~indent:(indent + 1) o.x)
-            | Malformed_token t -> sprintf "%s Malformed_token \"%s\""
+            | Malformed_token t -> sprintf "%s Malformed_token %s"
                 (From.print t.from)
                 (Bytestring.escaped_str_of t.bytes)
             | Cons c -> sprintf "Cons\n%s%s"

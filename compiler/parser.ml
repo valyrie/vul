@@ -95,7 +95,7 @@ and parse_expr p: Expr.t =
     match (la1 p, p.v) with
         (* REDUCE QUOTE *)
         | _, x :: (Quote q) :: _ when Expr.is_expr x -> reduce 2 (Quoted {x = x; quote = q}) p
-        | Right_parenthesis _, (Quote q) :: _ -> reduce 1 (Orphaned_structural_token {x = Quote q}) p
+        | Right_parenthesis _, (Quote q) :: _ -> reduce 1 (Orphaned_expr {x = Quote q}) p
         (* REDUCE UNIT *)
         | _, (Right_parenthesis r) :: (Left_parenthesis l) :: _ -> reduce 2 (Unit {left = l; right = r}) p
         (* REDUCE PARENS *)
@@ -105,11 +105,12 @@ and parse_expr p: Expr.t =
             not (Expr.is_structural l)
             && not (Expr.is_cons l)
             && Expr.is_cons_break la -> reduce 1 (Cons {left = l; right = None}) p
-        | _, r :: l :: _ when
-            Expr.is_cons r
+        | la, r :: l :: _ when
+            Expr.is_cons_break la
+            && Expr.is_cons r
             && not (Expr.is_structural l) -> reduce 2 (Cons {left = l; right = r}) p
         (* REDUCE ORPHANED TOKENS *)
-        | None, x :: _ when Expr.is_structural x -> reduce 1 (Orphaned_structural_token {x = x}) p
+        | None, x :: _ when Expr.is_structural x -> reduce 1 (Orphaned_expr {x = x}) p
         (* RETURN *)
         | None, [x] -> x
         | None, [] -> None
