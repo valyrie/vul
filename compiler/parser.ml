@@ -97,18 +97,19 @@ and parse_expr p: Expr.t =
         | _, x :: (Quote q) :: _ when Expr.is_expr x -> reduce 2 (Quoted {x = x; quote = q}) p
         | Right_parenthesis _, (Quote q) :: _ -> reduce 1 (Orphaned_expr {x = Quote q}) p
         (* REDUCE UNIT *)
-        | _, (Right_parenthesis r) :: (Left_parenthesis l) :: _ -> reduce 2 (Unit {left = l; right = r}) p
-        (* REDUCE PARENS *)
-        | _, (Right_parenthesis r) :: x :: (Left_parenthesis l) :: _ -> reduce 3 (Parentheses {x = x; left = l; right = r}) p
+        | _, (Right_parenthesis r) :: (Left_parenthesis l) :: _ -> reduce 2 (Unit {parentheses = {left = l; right = r}}) p
+        (* REDUCE PARENTHESES *)
+        | _, Right_parenthesis r :: x :: Left_parenthesis l :: _ -> reduce 3 (Cons {left = x; right = None; parentheses = Some {left = l; right = r}}) p
+        | _, Right_parenthesis r :: Cons y :: x :: Left_parenthesis l :: _ -> reduce 3 (Cons {left = x; right = Cons y; parentheses = Some {left = l; right = r}}) p
         (* REDUCE CONS *)
         | la, l :: _ when
             not (Expr.is_structural l)
             && not (Expr.is_cons l)
-            && Expr.is_cons_break la -> reduce 1 (Cons {left = l; right = None}) p
+            && Expr.is_cons_break la -> reduce 1 (Cons {left = l; right = None; parentheses = None}) p
         | la, r :: l :: _ when
             Expr.is_cons_break la
             && Expr.is_cons r
-            && not (Expr.is_structural l) -> reduce 2 (Cons {left = l; right = r}) p
+            && not (Expr.is_structural l) -> reduce 2 (Cons {left = l; right = r; parentheses = None}) p
         (* REDUCE ORPHANED TOKENS *)
         | None, x :: _ when Expr.is_structural x -> reduce 1 (Orphaned_expr {x = x}) p
         (* RETURN *)

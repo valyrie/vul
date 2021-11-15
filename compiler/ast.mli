@@ -8,16 +8,12 @@ module Expr :
     [@@@ocaml.warning "-30"]
     type orphaned_expr = { x : t; }
     and malformed_token = { bytes : Bytestring.t; from : From.t option; }
-    and cons = { left : t; right : t; }
+    and parentheses = { left : left_parenthesis; right : right_parenthesis; }
+    and cons = { left : t; right : t; parentheses : parentheses option; }
+    and unit = { parentheses : parentheses; }
     and identifier = { bytes : Bytestring.t; from : From.t option; }
     and left_parenthesis = { from : From.t option; }
     and right_parenthesis = { from : From.t option; }
-    and unit = { left : left_parenthesis; right : right_parenthesis; }
-    and parentheses = {
-      x : t;
-      left : left_parenthesis;
-      right : right_parenthesis;
-    }
     and quote = { from : From.t option; }
     and quoted = { x : t; quote : quote; }
     and number = { z : Numbers.Z.t; from : From.t option; }
@@ -26,11 +22,10 @@ module Expr :
       | Orphaned_expr of orphaned_expr
       | Malformed_token of malformed_token
       | Cons of cons
-      | Identifier of identifier
       | Left_parenthesis of left_parenthesis
       | Right_parenthesis of right_parenthesis
       | Unit of unit
-      | Parentheses of parentheses
+      | Identifier of identifier
       | Quote of quote
       | Quoted of quoted
       | Number of number
