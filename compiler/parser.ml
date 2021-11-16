@@ -92,6 +92,12 @@ let rec shift p =
 and reduce n x p =
     drop n p |> push x |> parse_expr
 and parse_expr p: Expr.t =
+    (* Printf.printf "LA:\n %s\n%s"
+            (Expr.print @@ la1 p)
+            (String.concat "" @@ List.mapi
+                (fun i x -> Printf.sprintf "%d:\n%s" i @@ Expr.print x) p.v);
+    let _ = read_line () in
+    Printf.printf "\n[BREAK]\n"; *)
     match (la1 p, p.v) with
         (* REDUCE QUOTE *)
         | _, x :: (Quote q) :: _ when Expr.is_expr x -> reduce 2 (Quoted {x = x; quote = q}) p
@@ -99,13 +105,15 @@ and parse_expr p: Expr.t =
         (* REDUCE UNIT *)
         | _, (Right_parenthesis r) :: (Left_parenthesis l) :: _ -> reduce 2 (Unit {parentheses = {left = l; right = r}}) p
         (* REDUCE PARENTHESES *)
+        | _, Right_parenthesis r :: Cons y :: x :: Left_parenthesis l :: _ -> reduce 4 (Cons {left = x; right = Cons y; parentheses = Some {left = l; right = r}}) p
         | _, Right_parenthesis r :: x :: Left_parenthesis l :: _ -> reduce 3 (Cons {left = x; right = None; parentheses = Some {left = l; right = r}}) p
-        | _, Right_parenthesis r :: Cons y :: x :: Left_parenthesis l :: _ -> reduce 3 (Cons {left = x; right = Cons y; parentheses = Some {left = l; right = r}}) p
         (* REDUCE CONS *)
         | la, l :: _ when
             not (Expr.is_structural l)
             && not (Expr.is_cons l)
             && Expr.is_cons_break la -> reduce 1 (Cons {left = l; right = None; parentheses = None}) p
+        | Right_parenthesis _, _ :: Left_parenthesis _ :: _ -> shift p
+        | Right_parenthesis _, _ :: _ :: Left_parenthesis _ :: _ -> shift p
         | la, r :: l :: _ when
             Expr.is_cons_break la
             && Expr.is_cons r
