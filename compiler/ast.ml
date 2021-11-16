@@ -81,47 +81,60 @@ module Expr = struct
         match x with
             Cons c -> fold_left f (f i c.left) c.right 
             | _ -> f i x
-    let rec print ?indent:(indent=0) x =
-    let open Printf in
+
     let break_indent i s =
+        let open Printf in
         match s with
             "" -> ""
             | _ -> sprintf "%s%s\n" (String.make i ' ')
-                @@ String.trim s in
-    break_indent indent
-        begin match x with
-            None -> ""
-            | Orphaned_expr o -> sprintf "Orphaned_expr\n%s"
-                (print ~indent:(indent + 1) o.x)
-            | Malformed_token t -> sprintf "%s Malformed_token %s"
-                (From.print t.from)
-                (Bytestring.escaped_str_of t.bytes)
-            | Cons c -> sprintf "Cons\n%s%s%s"
-                (print ~indent:(indent + 1) c.left)
-                (print ~indent:(indent + 1) c.right)
-                @@ Option.fold
-                    ~none:"\n"
-                    ~some:(fun p ->
-                        sprintf "%s%s"
-                        (print ~indent:(indent + 2) (Left_parenthesis p.left))
-                        (print ~indent:(indent + 2) (Right_parenthesis p.right)))
-                    c.parentheses
-            | Identifier i -> sprintf "%s Identifier %s" (From.print i.from)
-                (if Bytestring.is_printable i.bytes then 
-                    Bytestring.to_string i.bytes
-                else
-                    sprintf "i\"%s\"" @@ Bytestring.escaped_str_of i.bytes)
-            | Left_parenthesis l -> sprintf "%s (" (From.print l.from)
-            | Right_parenthesis r -> sprintf "%s )" (From.print r.from)
-            | Unit u -> sprintf "Unit\n%s%s"
-                (print ~indent:(indent + 1) (Left_parenthesis u.parentheses.left))
-                (print ~indent:(indent + 1) (Right_parenthesis u.parentheses.right))
-            | Quote q -> sprintf "%s '" (From.print q.from)
-            | Quoted q -> sprintf "Quoted\n%s%s"
-                (print ~indent:(indent + 1) (Quote q.quote))
-                (print ~indent:(indent + 1) q.x)
-            | Number n -> sprintf "%s Number %s"
-                (From.print n.from)
-                (Numbers.Z.to_string n.z)
-        end
+                @@ String.trim s
+    let rec print_cons_right ?indent:(indent=0) x =
+        let open Printf in
+        break_indent indent
+            @@ match x with
+                Cons c when
+                    c.parentheses = None -> sprintf "%s%s"
+                    (print ~indent:(indent) c.left)
+                    (print_cons_right ~indent:(indent) c.right)
+                | _ -> print ~indent:(indent) x
+    and print ?indent:(indent=0) x =
+        let open Printf in
+        break_indent indent
+            @@ match x with
+                None -> ""
+                | Orphaned_expr o -> sprintf "Orphaned_expr\n%s"
+                    (print ~indent:(indent + 1) o.x)
+                | Malformed_token t -> sprintf "%s Malformed_token %s"
+                    (From.print t.from)
+                    (Bytestring.escaped_str_of t.bytes)
+                | Cons c -> sprintf "Cons\n%s%s%s%s"
+                    (Option.fold
+                        ~none:""
+                        ~some:(fun p ->
+                            (print ~indent:(indent + 0) (Left_parenthesis p.left)))
+                        c.parentheses)
+                    (print ~indent:(indent + 1) c.left)
+                    (print_cons_right ~indent:(indent + 1) c.right)
+                    @@ Option.fold
+                        ~none:""
+                        ~some:(fun p ->
+                            (print ~indent:(indent + 0) (Right_parenthesis p.right)))
+                        c.parentheses
+                | Identifier i -> sprintf "%s Identifier %s" (From.print i.from)
+                    (if Bytestring.is_printable i.bytes then 
+                        Bytestring.to_string i.bytes
+                    else
+                        sprintf "i\"%s\"" @@ Bytestring.escaped_str_of i.bytes)
+                | Left_parenthesis l -> sprintf "%s (" (From.print l.from)
+                | Right_parenthesis r -> sprintf "%s )" (From.print r.from)
+                | Unit u -> sprintf "Unit\n%s%s"
+                    (print ~indent:(indent + 1) (Left_parenthesis u.parentheses.left))
+                    (print ~indent:(indent + 1) (Right_parenthesis u.parentheses.right))
+                | Quote q -> sprintf "%s '" (From.print q.from)
+                | Quoted q -> sprintf "Quoted\n%s%s"
+                    (print ~indent:(indent + 1) (Quote q.quote))
+                    (print ~indent:(indent + 1) q.x)
+                | Number n -> sprintf "%s Number %s"
+                    (From.print n.from)
+                    (Numbers.Z.to_string n.z)
 end
