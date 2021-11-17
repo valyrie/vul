@@ -28,6 +28,7 @@ module Expr = struct
     and quote = {from: From.t option}
     and quoted = {x: t; quote: quote}
     and number = {z: Z.t; from: From.t option}
+    and string = {bytes: Bytestring.t; from: From.t option}
     and t =
         (* avoid having to wrap in an option type *)
         None
@@ -48,6 +49,8 @@ module Expr = struct
         | Quoted of quoted
         (* numeric literal *)
         | Number of number
+        (* string literal *)
+        | String of string
     [@@@ocaml.warning "+30"]
     let is_atom x =
         match x with
@@ -136,4 +139,7 @@ module Expr = struct
                 | Number n -> sprintf "%s Number %s"
                     (From.print n.from)
                     (Numbers.Z.to_string n.z)
+                | String s -> sprintf "%s String %s"
+                        (From.print s.from)
+                        (sprintf "\"%s\"" @@ Bytestring.escaped_str_of s.bytes)
 end

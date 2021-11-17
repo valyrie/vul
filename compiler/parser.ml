@@ -76,6 +76,15 @@ let rec lex_number_body s p =
         Some c when is_digit_or_spacer c -> advance p 1 |> lex_number_body s
         | Some c when not @@ is_break c -> lex_malformed_token_body s p
         | _ -> p, Number {z = get_number @@ Source.read_bytes s.source s.offset (p.offset - s.offset); from = make_from s p}
+let get_string b =
+    Bytestring.captured_of_bytes (Bytes.sub b 1 (Bytes.length b - 2))
+let rec lex_string_body s p: t * Expr.t =
+    match look p 0, look p 1 with
+        Some '"', _ -> advance p 1, String {bytes = get_string @@ Source.read_bytes s.source s.offset (p.offset - s.offset + 1); from = make_from s @@ advance p 1}
+        | Some '\\', Some '\"' -> advance p 2 |> lex_string_body s
+        | Some '\\', Some '\\' -> advance p 2 |> lex_string_body s
+        | Some _, _ -> advance p 1 |> lex_string_body s
+        | None, _ -> lex_malformed_token_body s p
 let lex_token p: t * Expr.t =
     let p = skip_iws p in
     match look p 0, look p 1 with
@@ -83,6 +92,7 @@ let lex_token p: t * Expr.t =
         | Some '(', _ -> advance p 1, Left_parenthesis {from = make_from1 p}
         | Some ')', _ -> advance p 1, Right_parenthesis {from = make_from1 p}
         | Some '\'', _ -> advance p 1, Quote {from = make_from1 p}
+        | Some '"', _ -> advance p 1 |> lex_string_body p
         | Some s, Some c when
             is_sign s
             && is_digit c -> advance p 2 |> lex_number_body p

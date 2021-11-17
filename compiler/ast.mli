@@ -17,6 +17,7 @@ module Expr :
     and quote = { from : From.t option; }
     and quoted = { x : t; quote : quote; }
     and number = { z : Numbers.Z.t; from : From.t option; }
+    and string = { bytes : Bytestring.t; from : From.t option; }
     and t =
         None
       | Orphaned_expr of orphaned_expr
@@ -29,6 +30,7 @@ module Expr :
       | Quote of quote
       | Quoted of quoted
       | Number of number
+      | String of string
     [@@@ocaml.warning "+30"]
     val is_atom : t -> bool
     val is_structural : t -> bool
@@ -36,5 +38,7 @@ module Expr :
     val is_cons_break : t -> bool
     val is_cons : t -> bool
     val fold_left : ('a -> t -> 'a) -> 'a -> t -> 'a
-    val print : ?indent:int -> t -> string
+    val break_indent : int -> String.t -> String.t
+    val print_cons_right : ?indent:int -> t -> String.t
+    val print : ?indent:int -> t -> String.t
   end
