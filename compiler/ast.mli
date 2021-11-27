@@ -39,6 +39,7 @@ module Expr :
     val is_expr : t -> bool
     val is_cons_break : t -> bool
     val is_cons : t -> bool
+    val is_applicable : t -> bool
     val fold_left : ('a -> t -> 'a) -> 'a -> t -> 'a
     val len : t -> int
     val print : ?indent:int -> t -> String.t

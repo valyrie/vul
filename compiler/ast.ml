@@ -85,6 +85,10 @@ module Expr = struct
         match x with
             Cons _ -> true
             | _ -> false
+    let is_applicable x =
+        match x with
+            Builtin _ -> true
+            | _ -> false
     let rec fold_left f i x =
         match x with
             Cons c -> fold_left f (f i c.left) c.right 
