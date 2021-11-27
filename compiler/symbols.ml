@@ -8,7 +8,7 @@ module Make (K: Map.OrderedType) = struct
     type 'a t = 'a shadow Inner_map.t
     let empty: 'a t = Inner_map.empty
     let mem k (symbols: 'a t) = Inner_map.mem k symbols
-    let recall k symbols =
+    let recall k (symbols: 'a t) =
         match Inner_map.find_opt k symbols with
             None -> None
             | Some s -> match s with
