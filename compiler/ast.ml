@@ -83,7 +83,12 @@ module Expr = struct
     let rec fold_left f i x =
         match x with
             Cons c -> fold_left f (f i c.left) c.right 
+            | None -> i
             | _ -> f i x
+    let len x =
+        let inner n _ =
+            n + 1 in
+        fold_left inner 0 x
     let break_indent i s =
         let open Printf in
         match s with

@@ -38,6 +38,7 @@ module Expr :
     val is_cons_break : t -> bool
     val is_cons : t -> bool
     val fold_left : ('a -> t -> 'a) -> 'a -> t -> 'a
+    val len : t -> int
     val break_indent : int -> String.t -> String.t
     val print_cons_right : ?indent:int -> t -> String.t
     val print : ?indent:int -> t -> String.t
