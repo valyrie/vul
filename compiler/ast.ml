@@ -29,6 +29,7 @@ module Expr = struct
     and quoted = {x: t; quote: quote}
     and number = {z: Z.t; from: From.t option}
     and string = {bytes: Bytestring.t; from: From.t option}
+    and builtin = {name: Bytestring.t; fn: t -> t}
     and t =
         (* avoid having to wrap in an option type *)
         None
@@ -51,13 +52,17 @@ module Expr = struct
         | Number of number
         (* string literal *)
         | String of string
+        (* builtin *)
+        | Builtin of builtin
     [@@@ocaml.warning "+30"]
     let is_atom x =
         match x with
             Malformed_token _
             | Identifier _
             | Unit _
-            | Number _ -> true
+            | Number _
+            | String _
+            | Builtin _ -> true
             | _ -> false
     let is_structural x =
         match x with
@@ -147,4 +152,9 @@ module Expr = struct
                 | String s -> sprintf "%s String %s"
                         (From.print s.from)
                         (sprintf "\"%s\"" @@ Bytestring.escaped_str_of s.bytes)
+                | Builtin b -> sprintf "Builtin %s"
+                    (if Bytestring.is_printable b.name then 
+                        Bytestring.to_string b.name
+                    else
+                        sprintf "i\"%s\"" @@ Bytestring.escaped_str_of b.name)
 end
