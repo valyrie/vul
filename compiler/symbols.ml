@@ -1,30 +1,23 @@
 (* generalized, shadowable symbol bindings *)
 
-module type Key = sig
-    type t
-    val compare : t -> t -> int
-end
-module Make (K: Key) = struct
-    type 'a bound =
-        {k: K.t; v: 'a; shadowed: 'a t}
-    and 'a t =
-        Null
-        | Bound of 'a bound
-    let empty = Null
-    let bind k v shadowed =
-        Bound {k = k; v = v; shadowed = shadowed}
-    let make k v =
-        bind k v Null
-    let rec recall k symbols =
-        match symbols with
-            Null -> None
-            | Bound b ->
-                if K.compare k b.k = 0 then
-                    Some b.v
-                else
-                    recall k b.shadowed
-    let mem k symbols =
-        match recall k symbols with
-            None -> false
-            | Some _ -> true
+module Make (K: Map.OrderedType) = struct
+    module Inner_map = Map.Make(K)
+    type 'a shadow =
+        Terminal of 'a
+        | Shadowed of 'a * 'a shadow
+    type 'a t = 'a shadow Inner_map.t
+    let empty: 'a t = Inner_map.empty
+    let mem k (symbols: 'a t) = Inner_map.mem k symbols
+    let recall k symbols =
+        match Inner_map.find_opt k symbols with
+            None -> None
+            | Some s -> match s with
+                Terminal a -> Some a
+                | Shadowed (a, _) -> Some a
+    let bind k v symbols: 'a t =
+        if not @@ mem k symbols then
+            Inner_map.add k (Terminal v) symbols
+        else
+            let shadowed = Inner_map.find k symbols in
+            Inner_map.add k (Shadowed (v, shadowed)) symbols
 end
