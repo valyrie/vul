@@ -6,8 +6,8 @@ type t =
     {v: Expr.t list; offset: int; source: Source.t}
 let make_from off stop: From.t option =
     Some {offset = off.offset; stop = stop.offset; source = off.source}
-let make_from1 off: From.t option =
-    Some {offset = off.offset; stop = off.offset + 1; source = off.source}
+let make_from1 off: From.t =
+    {offset = off.offset; stop = off.offset + 1; source = off.source}
 let of_source s =
     {v = []; offset = 0; source = s}
 let look p n =
@@ -45,11 +45,11 @@ let rec skip_iws p =
 let rec lex_ident_body s p: t * Expr.t =
     match look p 0 with
         Some c when not (is_break c) -> advance p 1 |> lex_ident_body s
-        | _ -> p, Identifier {bytes = Bytestring.of_bytes @@ Source.read_bytes s.source s.offset (p.offset - s.offset); from = make_from s p}
-let rec lex_malformed_token_body s p: t * Expr.t =
+        | _ -> p, Expr.identifier (Bytestring.of_bytes @@ Source.read_bytes s.source s.offset (p.offset - s.offset)) @@ make_from s p
+let rec lex_malformed_token_body s p =
     match look p 0 with
         Some c when not (is_break c) -> advance p 1 |> lex_malformed_token_body s
-        | _ -> p, Malformed_token {bytes = Bytestring.of_bytes @@ Source.read_bytes s.source s.offset (p.offset - s.offset); from = make_from s p}
+        | _ -> p, Expr.malformed_token (Bytestring.of_bytes @@ Source.read_bytes s.source s.offset (p.offset - s.offset)) @@ make_from s p
 let rec get_number_body b s z =
     let open Numbers in
     if Bytes.length b > 0 then
@@ -75,23 +75,23 @@ let rec lex_number_body s p =
     match look p 0 with
         Some c when is_digit_or_spacer c -> advance p 1 |> lex_number_body s
         | Some c when not @@ is_break c -> lex_malformed_token_body s p
-        | _ -> p, Number {z = get_number @@ Source.read_bytes s.source s.offset (p.offset - s.offset); from = make_from s p}
+        | _ -> p, Expr.number (get_number @@ Source.read_bytes s.source s.offset (p.offset - s.offset)) @@ make_from s p
 let get_string b =
     Bytestring.captured_of_bytes (Bytes.sub b 1 (Bytes.length b - 2))
-let rec lex_string_body s p: t * Expr.t =
+let rec lex_string_body s p =
     match look p 0, look p 1 with
-        Some '"', _ -> advance p 1, String {bytes = get_string @@ Source.read_bytes s.source s.offset (p.offset - s.offset + 1); from = make_from s @@ advance p 1}
+        Some '"', _ -> advance p 1, Expr.string (get_string @@ Source.read_bytes s.source s.offset (p.offset - s.offset + 1)) @@ make_from s @@ advance p 1
         | Some '\\', Some '\"' -> advance p 2 |> lex_string_body s
         | Some '\\', Some '\\' -> advance p 2 |> lex_string_body s
         | Some _, _ -> advance p 1 |> lex_string_body s
         | None, _ -> lex_malformed_token_body s p
-let lex_token p: t * Expr.t =
+let lex_token p =
     let p = skip_iws p in
     match look p 0, look p 1 with
-        None, _ -> p, None
-        | Some '(', _ -> advance p 1, Left_parenthesis {from = make_from1 p}
-        | Some ')', _ -> advance p 1, Right_parenthesis {from = make_from1 p}
-        | Some '\'', _ -> advance p 1, Quote {from = make_from1 p}
+        None, _ -> p, Expr.Null
+        | Some '(', _ -> advance p 1, Expr.left_parenthesis @@ make_from1 p
+        | Some ')', _ -> advance p 1, Expr.right_parenthesis @@ make_from1 p
+        | Some '\'', _ -> advance p 1, Expr.quote @@ make_from1 p
         | Some '"', _ -> advance p 1 |> lex_string_body p
         | Some s, Some c when
             is_sign s
@@ -110,7 +110,7 @@ let la1 p =
         x
 let rec shift p =
     let (px, x) = lex_token p in
-        if x != None then
+        if x != Null then
             push x px |> parse_expr
         else
             parse_expr p
@@ -125,28 +125,28 @@ and parse_expr p: Expr.t =
     Printf.printf "\n[BREAK]\n"; *)
     match (la1 p, p.v) with
         (* REDUCE QUOTE *)
-        | _, x :: (Quote q) :: _ when Expr.is_expr x -> reduce 2 (Quoted {x = x; quote = q}) p
-        | Right_parenthesis _, (Quote q) :: _ -> reduce 1 (Orphaned_expr {x = Quote q}) p
+        | _, x :: (Quote q) :: _ when Expr.is_expr x -> reduce 2 (Expr.quoted x q) p
+        | Right_parenthesis _, (Quote q) :: _ -> reduce 1 (Expr.orphaned @@ Quote q) p
         (* REDUCE UNIT *)
-        | _, (Right_parenthesis r) :: (Left_parenthesis l) :: _ -> reduce 2 (Unit {parentheses = {left = l; right = r}}) p
+        | _, (Right_parenthesis r) :: (Left_parenthesis l) :: _ -> reduce 2 (Expr.unit @@ Expr.parentheses l r) p
         (* REDUCE PARENTHESES *)
-        | _, Right_parenthesis r :: Cons y :: x :: Left_parenthesis l :: _ -> reduce 4 (Cons {left = x; right = Cons y; parentheses = Some {left = l; right = r}}) p
-        | _, Right_parenthesis r :: x :: Left_parenthesis l :: _ -> reduce 3 (Cons {left = x; right = None; parentheses = Some {left = l; right = r}}) p
+        | _, Right_parenthesis r :: Cons y :: x :: Left_parenthesis l :: _ -> reduce 4 (Expr.cons x (Some (Cons y)) @@ Expr.parentheses l r) p
+        | _, Right_parenthesis r :: x :: Left_parenthesis l :: _ -> reduce 3 (Expr.cons x None @@ Expr.parentheses l r) p
         (* REDUCE CONS *)
         | la, l :: _ when
             not (Expr.is_structural l)
             && not (Expr.is_cons l)
-            && Expr.is_cons_break la -> reduce 1 (Cons {left = l; right = None; parentheses = None}) p
+            && Expr.is_cons_break la -> reduce 1 (Expr.cons l None None) p
         | Right_parenthesis _, _ :: Left_parenthesis _ :: _ -> shift p
         | Right_parenthesis _, _ :: _ :: Left_parenthesis _ :: _ -> shift p
         | la, r :: l :: _ when
             Expr.is_cons_break la
             && Expr.is_cons r
-            && not (Expr.is_structural l) -> reduce 2 (Cons {left = l; right = r; parentheses = None}) p
+            && not (Expr.is_structural l) -> reduce 2 (Expr.cons l (Some r) None) p
         (* REDUCE ORPHANED TOKENS *)
-        | None, x :: _ when Expr.is_structural x -> reduce 1 (Orphaned_expr {x = x}) p
+        | Null, x :: _ when Expr.is_structural x -> reduce 1 (Expr.orphaned x) p
         (* RETURN *)
-        | None, [x] -> x
-        | None, [] -> None
+        | Null, [x] -> x
+        | Null, [] -> Null
         (* SHIFT *)
         | _, _ -> shift p
