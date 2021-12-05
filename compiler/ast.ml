@@ -42,7 +42,7 @@ module Expr = struct
     type orphaned = {x: t}
     and cons = {left: t; right: t option; parentheses: parentheses option}
     and quoted = {x: t; quote: quote}
-    and builtin = {name: Bytestring.t; fn: t -> t}
+    and procedure = {name: Bytestring.t; fn: t -> t Symbols.Make(Bytestring).t -> t * t Symbols.Make(Bytestring).t }
     and t =
         (* avoid wrapping in option *)
         Null
@@ -62,8 +62,8 @@ module Expr = struct
         | Quoted of quoted
         (* literals *)
         | Literal of literal
-        (* builtins *)
-        | Builtin of builtin
+        (* procedures *)
+        | Procedure of procedure
     [@@@ocaml.warning "+30"]
     let left_parenthesis f =
         Left_parenthesis {from = f}
@@ -94,7 +94,7 @@ module Expr = struct
             Malformed_token _
             | Identifier _
             | Literal _
-            | Builtin _ -> true
+            | Procedure _ -> true
             | _ -> false
     let is_structural x =
         match x with
@@ -123,7 +123,7 @@ module Expr = struct
             | _ -> false
     let is_applicable x =
         match x with
-            Builtin _ -> true
+            Procedure _ -> true
             | _ -> false
     let rec fold_left f i x =
         match x with
@@ -138,6 +138,25 @@ module Expr = struct
         let inner n _ =
             n + 1 in
         fold_left inner 0 x
+    let rec nth x i =
+        if i > 0 then
+            match x with
+                Cons {right = Some r; _} ->
+                    nth r @@ i - 1
+                | Cons _ ->
+                    raise @@ Invalid_argument "index out of range"
+                | _ ->
+                    raise @@ Invalid_argument "cannot get nth element of non-list" 
+        else
+            match x with
+                Cons {left = l; _} ->
+                    l
+                | _ ->
+                    raise @@ Invalid_argument "cannot get nth element of non-list"
+    let to_list x =
+        let inner l x =
+            List.concat [l; [x]] in
+        fold_left inner [] x
     let break_indent i s =
         let open Printf in
         match s with
@@ -230,11 +249,11 @@ module Expr = struct
                                 (sprintf "\"%s\""
                                     @@ Bytestring.escaped_str_of s.bytes)
                 end
-                | Builtin b ->
-                    sprintf "Builtin %s"
-                        (if Bytestring.is_printable b.name then 
-                            Bytestring.to_string b.name
+                | Procedure p ->
+                    sprintf "Procedure %s"
+                        (if Bytestring.is_printable p.name then 
+                            Bytestring.to_string p.name
                         else
                             sprintf "i\"%s\""
-                                @@ Bytestring.escaped_str_of b.name)
+                                @@ Bytestring.escaped_str_of p.name)
 end
