@@ -20,4 +20,11 @@ module Make (K: Map.OrderedType) = struct
         else
             let shadowed = Inner_map.find k symbols in
             Inner_map.add k (Shadowed (v, shadowed)) symbols
+    let of_list l =
+        let rec inner l s =
+            match l with
+                [] -> s
+                | (k, v) :: tl ->
+                    inner tl @@ bind k v s in
+        inner l empty
 end
