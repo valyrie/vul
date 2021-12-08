@@ -153,6 +153,18 @@ module Expr = struct
                     l
                 | _ ->
                     raise @@ Invalid_argument "cannot get nth element of non-list"
+    let hd x =
+        match x with
+            Cons {left = l; _} ->
+                l
+            | _ ->
+                raise @@ Invalid_argument "cannot get head of a non-list"
+    let tl x =
+        match x with
+            Cons {right = Some r; _} ->
+                r
+            | _ ->
+                unit None
     let to_list x =
         let inner l x =
             List.concat [l; [x]] in

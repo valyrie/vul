@@ -67,6 +67,8 @@ module Expr :
     val fold_left : ('a -> t -> 'a) -> 'a -> t -> 'a
     val len : t -> int
     val nth : t -> int -> t
+    val hd : t -> t
+    val tl : t -> t
     val to_list : t -> t list
     val print : ?indent:int -> t -> String.t
   end
