@@ -138,8 +138,13 @@ and parse_expr p: Expr.t =
         | Right_parenthesis _, _ :: _ :: Left_parenthesis _ :: _ -> shift p
         | la, r :: l :: _ when
             Expr.is_cons_break la
-            && Expr.is_cons r
+            && Expr.is_cons_right r
             && not (Expr.is_structural l) -> reduce 2 (Expr.cons l (Some r) None) p
+        | la, r :: l :: _ when
+            Expr.is_cons_break la
+            && Expr.is_cons r
+            && not @@ Expr.is_cons_right r
+            && not (Expr.is_structural l) -> reduce 1 (Expr.cons r None None) p
         (* REDUCE ORPHANED TOKENS *)
         | Null, x :: _ when Expr.is_structural x -> reduce 1 (Expr.orphaned x) p
         (* RETURN *)
