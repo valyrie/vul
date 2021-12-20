@@ -75,7 +75,7 @@ let rec print_sexps l =
     let open Compiler in
         match l with
             [] -> ""
-            | hd :: tl -> String.concat "" [Parser.of_source hd |> Parser.parse_expr |> Sx.of_ast |> Sx.print; print_sexps tl]
+            | hd :: tl -> String.concat "" [Parser.of_source hd |> Parser.parse_expr |> Sx.of_ast |> Sx.print; "\n"; print_sexps tl]
 let rec emit_artifacts l =
     let open Artifact in
         match l with
