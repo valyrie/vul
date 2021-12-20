@@ -27,7 +27,6 @@ module Expr = struct
     type malformed_token = {bytes: Bytestring.t; from: From.t option}
     type left_parenthesis = {from: From.t}
     type right_parenthesis = {from: From.t}
-    type quote = {from: From.t}
     type parentheses = {left: left_parenthesis; right: right_parenthesis}
     let parentheses l r =
         Some {left = l; right = r}
@@ -41,7 +40,6 @@ module Expr = struct
     type identifier = {bytes: Bytestring.t; from: From.t option}
     type orphaned = {x: t}
     and cons = {left: t; right: t option; parentheses: parentheses option}
-    and quoted = {x: t; quote: quote}
     and t =
         (* avoid wrapping in option *)
         Null
@@ -56,9 +54,6 @@ module Expr = struct
         | Right_parenthesis of right_parenthesis
         (* identifier *)
         | Identifier of identifier
-        (* quote *)
-        | Quote of quote
-        | Quoted of quoted
         (* literals *)
         | Literal of literal
     [@@@ocaml.warning "+30"]
@@ -66,8 +61,6 @@ module Expr = struct
         Left_parenthesis {from = f}
     let right_parenthesis f =
         Right_parenthesis {from = f}
-    let quote f =
-        Quote {from = f}
     let literal l =
         Literal l
     let unit p =
@@ -84,8 +77,6 @@ module Expr = struct
         Malformed_token {bytes = b; from = f}
     let cons l r p =
         Cons {left = l; right = r; parentheses = p}
-    let quoted x q =
-        Quoted {x = x; quote = q}
     let is_atom x =
         match x with
             Malformed_token _
@@ -95,14 +86,12 @@ module Expr = struct
     let is_structural x =
         match x with
             Left_parenthesis _
-            | Right_parenthesis _
-            | Quote _ -> true
+            | Right_parenthesis _ -> true
             | _ -> false
     let is_expr x =
         match x with
             Orphaned _
-            | Cons _
-            | Quoted _ -> true
+            | Cons _ -> true
             | _ -> is_atom x
     let is_error x =
         match x with
@@ -227,12 +216,6 @@ module Expr = struct
                     sprintf "%s (" (From.print l.from)
                 | Right_parenthesis r ->
                     sprintf "%s )" (From.print r.from)
-                | Quote q ->
-                    sprintf "%s '" (From.print q.from)
-                | Quoted q ->
-                    sprintf "Quoted\n%s%s"
-                        (print ~indent:(indent + 1) (Quote q.quote))
-                        (print ~indent:(indent + 1) q.x)
                 | Literal l ->
                     begin match l with
                         Unit {parentheses = Some parens} ->

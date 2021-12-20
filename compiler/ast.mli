@@ -12,7 +12,6 @@ module Expr :
     type malformed_token = { bytes : Bytestring.t; from : From.t option; }
     type left_parenthesis = { from : From.t; }
     type right_parenthesis = { from : From.t; }
-    type quote = { from : From.t; }
     type parentheses = {
       left : left_parenthesis;
       right : right_parenthesis;
@@ -30,7 +29,6 @@ module Expr :
       right : t option;
       parentheses : parentheses option;
     }
-    and quoted = { x : t; quote : quote; }
     and t =
         Null
       | Orphaned of orphaned
@@ -39,13 +37,10 @@ module Expr :
       | Left_parenthesis of left_parenthesis
       | Right_parenthesis of right_parenthesis
       | Identifier of identifier
-      | Quote of quote
-      | Quoted of quoted
       | Literal of literal
     [@@@ocaml.warning "+30"]
     val left_parenthesis : From.t -> t
     val right_parenthesis : From.t -> t
-    val quote : From.t -> t
     val literal : literal -> t
     val unit : parentheses option -> t
     val number : Numbers.Z.t -> From.t option -> t
@@ -54,7 +49,6 @@ module Expr :
     val orphaned : t -> t
     val malformed_token : Bytestring.t -> From.t option -> t
     val cons : t -> t option -> parentheses option -> t
-    val quoted : t -> quote -> t
     val is_atom : t -> bool
     val is_structural : t -> bool
     val is_expr : t -> bool

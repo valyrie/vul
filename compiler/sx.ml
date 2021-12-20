@@ -87,8 +87,7 @@ let rec of_ast a =
             raise @@ Ast_err 
             (sprintf "malformed token:\n%s" @@ Expr.print a)
         | Left_parenthesis _
-        | Right_parenthesis _
-        | Quote _ ->
+        | Right_parenthesis _ ->
             raise @@ Ast_err (sprintf "orphaned token:\n%s" @@ Expr.print a)
         | Cons {left = l; right = None; _} ->
             List [of_ast l]
@@ -96,8 +95,6 @@ let rec of_ast a =
             (cons (of_ast l) (of_ast r))
         | Identifier {bytes = n; _} ->
             Name n
-        | Quoted {x = x; _} ->
-            cons (Name (Bytestring.of_string "quote")) (of_ast x)
         | Literal Unit _ ->
             List []
         | Literal Number {z = z; _} ->
