@@ -42,7 +42,6 @@ module Expr = struct
     type orphaned = {x: t}
     and cons = {left: t; right: t option; parentheses: parentheses option}
     and quoted = {x: t; quote: quote}
-    and procedure = {name: Bytestring.t; fn: t -> t Symbols.Make(Bytestring).t -> t * t Symbols.Make(Bytestring).t }
     and t =
         (* avoid wrapping in option *)
         Null
@@ -62,8 +61,6 @@ module Expr = struct
         | Quoted of quoted
         (* literals *)
         | Literal of literal
-        (* procedures *)
-        | Procedure of procedure
     [@@@ocaml.warning "+30"]
     let left_parenthesis f =
         Left_parenthesis {from = f}
@@ -93,8 +90,7 @@ module Expr = struct
         match x with
             Malformed_token _
             | Identifier _
-            | Literal _
-            | Procedure _ -> true
+            | Literal _ -> true
             | _ -> false
     let is_structural x =
         match x with
@@ -120,10 +116,6 @@ module Expr = struct
     let is_cons x =
         match x with
             Cons _ -> true
-            | _ -> false
-    let is_applicable x =
-        match x with
-            Procedure _ -> true
             | _ -> false
     let rec fold_left f i x =
         match x with
@@ -261,11 +253,4 @@ module Expr = struct
                                 (sprintf "\"%s\""
                                     @@ Bytestring.escaped_str_of s.bytes)
                 end
-                | Procedure p ->
-                    sprintf "Procedure %s"
-                        (if Bytestring.is_printable p.name then 
-                            Bytestring.to_string p.name
-                        else
-                            sprintf "i\"%s\""
-                                @@ Bytestring.escaped_str_of p.name)
 end

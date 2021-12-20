@@ -31,7 +31,6 @@ module Expr :
       parentheses : parentheses option;
     }
     and quoted = { x : t; quote : quote; }
-    and procedure = { name : Bytestring.t; fn : t -> t Symbols.Make(Bytestring).t -> t * t Symbols.Make(Bytestring).t; }
     and t =
         Null
       | Orphaned of orphaned
@@ -43,7 +42,6 @@ module Expr :
       | Quote of quote
       | Quoted of quoted
       | Literal of literal
-      | Procedure of procedure
     [@@@ocaml.warning "+30"]
     val left_parenthesis : From.t -> t
     val right_parenthesis : From.t -> t
@@ -63,7 +61,6 @@ module Expr :
     val is_error : t -> bool
     val is_cons_break : t -> bool
     val is_cons : t -> bool
-    val is_applicable : t -> bool
     val fold_left : ('a -> t -> 'a) -> 'a -> t -> 'a
     val len : t -> int
     val nth : t -> int -> t
