@@ -73,6 +73,37 @@ module Eval = struct
                 proc_sequence (List tl) s
             | _ -> raise Invalid_arguments
 end
+exception Ast_err of string
+let rec of_ast a =
+    let open Ast in
+    let open Printf in
+    match (a: Expr.t) with
+        Null ->
+            List []
+        | Orphaned _ ->
+            raise @@ Ast_err
+                (sprintf "orphaned expression:\n%s" @@ Expr.print a)
+        | Malformed_token _ ->
+            raise @@ Ast_err 
+            (sprintf "malformed token:\n%s" @@ Expr.print a)
+        | Left_parenthesis _
+        | Right_parenthesis _
+        | Quote _ ->
+            raise @@ Ast_err (sprintf "orphaned token:\n%s" @@ Expr.print a)
+        | Cons {left = l; right = None; _} ->
+            List [of_ast l]
+        | Cons {left = l; right = Some r; _} ->
+            (cons (of_ast l) (of_ast r))
+        | Identifier {bytes = n; _} ->
+            Name n
+        | Quoted {x = x; _} ->
+            cons (Name (Bytestring.of_string "quote")) (of_ast x)
+        | Literal Unit _ ->
+            List []
+        | Literal Number {z = z; _} ->
+            Number z
+        | Literal String {bytes = s; _} ->
+            String s
 let rec print x =
     let open Printf in
     match x with
