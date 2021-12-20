@@ -22,6 +22,7 @@ let opts: Cli.Opt.t list = [
     {keys = ["-v"; "--verbose"]; action = Inc_int verbosity; help = "increase verbosity; may be specified multiple times."};
     {keys = ["-Z"; "--artifact"]; action = Append_string artifact_specs; help = "specify an output artifact; may be specified multiple times."};
     {keys = ["-a"; "--ast"]; action = Append_string_of (artifact_specs, (fun s -> String.concat "" [s; ",ast"])); help = "specify an ast output; may be specified multiple times."};
+    {keys = ["-x"; "--sexp"]; action = Append_string_of (artifact_specs, (fun s -> String.concat "" [s; ",sexp"])); help = "speciy a sexp output; may be specified multiple times."};
     {keys = ["-I"; "--include"]; action = Append_string include_paths; help = "specify a directory to include; may be specified multiple times."};
     {keys = ["--"]; action = Rest; help = "explicitly terminate options."}
 ]
@@ -70,14 +71,18 @@ let rec print_asts l =
         match l with
             [] -> ""
             | hd :: tl -> String.concat "" [Parser.of_source hd |> Parser.parse_expr |> Ast.Expr.print; print_asts tl]
-
-
+let rec print_sexps l =
+    let open Compiler in
+        match l with
+            [] -> ""
+            | hd :: tl -> String.concat "" [Parser.of_source hd |> Parser.parse_expr |> Sx.of_ast |> Sx.print; "\n"; print_sexps tl]
 let rec emit_artifacts l =
     let open Artifact in
         match l with
             [] -> ()
             | a :: tl -> match a.kind with
                 Ast -> File.Output.output_bytes a.output @@ Bytes.of_string @@ print_asts sources; emit_artifacts tl
+                | Sexp -> File.Output.output_bytes a.output @@ Bytes.of_string @@ print_sexps sources; emit_artifacts tl
 let handle_exit () =
     if !Cli.Print.error_code != 0 then
         (try List.iter Artifact.destroy artifacts with

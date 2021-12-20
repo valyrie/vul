@@ -2,7 +2,9 @@
 
 open File
 exception BadSpec of string
-type kind = Ast
+type kind =
+    Ast
+    | Sexp
 module Spec = Map.Make(String)
 type t = {dst: string; wrt: string option; output: Output.t; kind: kind}
 let open_output s =
@@ -18,6 +20,7 @@ let destroy a =
 let parse_spec_kind s =
     match s with
         "ast" -> Ast
+        | "sexp" -> Sexp
         | _ -> raise (BadSpec (String.concat "" ["unrecognized artifact kind: "; s]))
 let parse_spec_is_kind s =
     try let _ = parse_spec_kind s in true with

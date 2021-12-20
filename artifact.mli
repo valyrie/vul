@@ -1,5 +1,5 @@
 exception BadSpec of string
-type kind = Ast
+type kind = Ast | Sexp
 type t = {
   dst : string;
   wrt : string option;
