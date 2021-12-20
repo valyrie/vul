@@ -116,12 +116,13 @@ let rec shift p =
 and reduce n x p =
     drop n p |> push x |> parse_expr
 and parse_expr p: Expr.t =
-    (* Printf.printf "LA:\n %s\n%s"
-            (Expr.print @@ la1 p)
-            (String.concat "" @@ List.mapi
-                (fun i x -> Printf.sprintf "%d:\n%s" i @@ Expr.print x) p.v);
-    let _ = read_line () in
-    Printf.printf "\n[BREAK]\n"; *)
+    if false then
+        (Printf.printf "LA:\n %s\n%s"
+                (Expr.print @@ la1 p)
+                (String.concat "" @@ List.mapi
+                    (fun i x -> Printf.sprintf "%d:\n%s" i @@ Expr.print x) p.v);
+        let _ = read_line () in
+        Printf.printf "\n[BREAK]\n");
     match (la1 p, p.v) with
         (* REDUCE UNIT *)
         | _, (Right_parenthesis r) :: (Left_parenthesis l) :: _ -> reduce 2 (Expr.unit @@ Expr.parentheses l r) p
