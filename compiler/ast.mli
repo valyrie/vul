@@ -55,6 +55,7 @@ module Expr :
     val is_error : t -> bool
     val is_cons_break : t -> bool
     val is_cons : t -> bool
+    val is_cons_right : t -> bool
     val fold_left : ('a -> t -> 'a) -> 'a -> t -> 'a
     val len : t -> int
     val nth : t -> int -> t

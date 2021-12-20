@@ -107,6 +107,10 @@ module Expr = struct
         match x with
             Cons _ -> true
             | _ -> false
+    let is_cons_right x =
+        match x with
+            Cons {parentheses = None; _} -> true
+            | _ -> false
     let rec fold_left f i x =
         match x with
             Cons {left = left; right = Some right; _} ->
