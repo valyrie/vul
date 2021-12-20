@@ -91,7 +91,6 @@ let lex_token p =
         None, _ -> p, Expr.Null
         | Some '(', _ -> advance p 1, Expr.left_parenthesis @@ make_from1 p
         | Some ')', _ -> advance p 1, Expr.right_parenthesis @@ make_from1 p
-        | Some '\'', _ -> advance p 1, Expr.quote @@ make_from1 p
         | Some '"', _ -> advance p 1 |> lex_string_body p
         | Some s, Some c when
             is_sign s
@@ -124,9 +123,6 @@ and parse_expr p: Expr.t =
     let _ = read_line () in
     Printf.printf "\n[BREAK]\n"; *)
     match (la1 p, p.v) with
-        (* REDUCE QUOTE *)
-        | _, x :: (Quote q) :: _ when Expr.is_expr x -> reduce 2 (Expr.quoted x q) p
-        | Right_parenthesis _, (Quote q) :: _ -> reduce 1 (Expr.orphaned @@ Quote q) p
         (* REDUCE UNIT *)
         | _, (Right_parenthesis r) :: (Left_parenthesis l) :: _ -> reduce 2 (Expr.unit @@ Expr.parentheses l r) p
         (* REDUCE PARENTHESES *)
