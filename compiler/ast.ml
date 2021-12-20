@@ -100,7 +100,8 @@ module Expr = struct
             | _ -> false
     let is_cons_break x =
         match x with
-            Right_parenthesis _ -> true
+            Null
+            | Right_parenthesis _ -> true
             | _ -> false
     let is_cons x =
         match x with
