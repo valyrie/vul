@@ -25,7 +25,7 @@ let tl x =
 let cons a b =
     match b with
         List l -> List (a :: l)
-        | _ -> List [a; b]
+        | _ -> raise @@ Invalid_argument "cannot cons to non-list"
 let len x =
     match x with
         List l -> List.length l
@@ -118,4 +118,4 @@ let rec print x =
             "PROCEDURE"
         | List l ->
             String.concat " "
-                @@ List.map print l
+                @@ List.concat [["("]; (List.map print l); [")"]]
