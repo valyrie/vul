@@ -1,3 +1,6 @@
 [submodule "numbers"]
 	path = numbers
 	url = git@github.com:valyrie/numbers.git
+[submodule "cmdargs"]
+	path = cmdargs
+	url = git@github.com:valyrie/cmdargs.git
