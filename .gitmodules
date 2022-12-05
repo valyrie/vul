@@ -4,3 +4,6 @@
 [submodule "cmdargs"]
 	path = cmdargs
 	url = git@github.com:valyrie/cmdargs.git
+[submodule "fsio"]
+	path = fsio
+	url = git@github.com:valyrie/fsio.git
