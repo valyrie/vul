@@ -12,7 +12,7 @@ module Make :
             module Expr :
                 sig
                     [@@@ocaml.warning "-30"]
-                    type from = { start : int; stop : int; reader : R.t; }
+                    type from = { text : bytes; start : int; stop : int; path : string; }
                     type word = { from : from; }
                     type lpar = { from : from; }
                     type rpar = { from : from; }
@@ -32,14 +32,5 @@ module Make :
                         | Cons of cons
                     [@@@ocaml.warning "+30"]
             end
-            val word : Expr.from -> Expr.t
-            val lpar : Expr.from -> Expr.t
-            val rpar : Expr.from -> Expr.t
-            val empty : Expr.lpar -> Expr.rpar -> Expr.t
-            val orphaned : Expr.t -> Expr.error option -> Expr.error
-            val malformed : Expr.from -> Expr.error option -> Expr.error
-            val error : Expr.error -> Expr.t
-            val parens : Expr.lpar -> Expr.t -> Expr.rpar -> Expr.t
-            val cons : Expr.t -> Expr.t option -> Expr.t
             val parse : R.t -> Expr.t * Expr.error option
     end
