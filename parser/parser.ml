@@ -43,8 +43,8 @@ module Make (R: Reader) = struct
     let error e = Expr.Error e
     let parens l x r = Expr.Parens {left = l; expr = x; right = r}
     let cons l r = Expr.Cons {left = l; right = r}
-    type t = {offset: int; reader: R.t}
-    let of_reader r = {offset = 0; reader = r}
+    type t = {offset: int; reader: R.t; last_error: Expr.error option}
+    let of_reader r = {offset = 0; reader = r; last_error = None}
     let advance ?(ahead = 1) p = {p with offset = p.offset + ahead}
     let look_byte ?(ahead = 0) p = R.read_byte p.reader (p.offset + ahead)
     let look_bytes ?(ahead = 0) p n = R.read_bytes p.reader (p.offset + ahead) n
@@ -69,7 +69,8 @@ module Make (R: Reader) = struct
     let rec lex_malformed_body start p =
         match look_byte p with
               Some c when is_word_break c -> lex_malformed_body start @@ advance p
-            | _ -> p, Some (error @@ malformed (make_from start p) None)
+            | _ -> let err = malformed (make_from start p) p.last_error in
+                {p with last_error = Some err}, Some (error @@ err)
     let rec lex_word_body_quoted_escape_hex start p =
         match look_byte p, look_byte ~ahead:1 p with
               Some a, Some b when is_hex_digit a && is_hex_digit b -> lex_word_body_quoted start @@ advance ~ahead:2 p
