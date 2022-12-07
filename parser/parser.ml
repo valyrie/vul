@@ -122,7 +122,7 @@ module Make (R: Reader) = struct
             | _, Rpar r :: x :: Lpar l :: _ -> reduce 3 (parens l x r) p v
             (* TODO *)
             (* return *)
-            | None, [x] -> x
+            | None, [x] -> x, p.last_error
             (* shift *)
             | _, _ -> shift p v
     let parse r = parse_step (of_reader r) []
