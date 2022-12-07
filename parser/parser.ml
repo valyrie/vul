@@ -32,5 +32,18 @@ module Make (R: Reader) = struct
             | Cons of cons
         [@@@ocaml.warning "+30"]
     end
+    type t = {offset: int; reader: R.t}
+    let of_reader r = {offset = 0; reader = r}
+    let advance ?(ahead = 1) p = {p with offset = p.offset + ahead}
+    let look_byte ?(ahead = 0) p = R.read_byte p.reader (p.offset + ahead)
+    let look_bytes ?(ahead = 0) p n = R.read_bytes p.reader (p.offset + ahead) n
+    let at_eof p = Option.is_none @@ look_byte p
+    let is_ws c =
+        c = ' ' || c = '\t' || c = '\n' || c = '\r'
+    let rec skip_ws p =
+        match look_byte p with
+              Some c when is_ws c -> skip_ws @@ advance p
+            | _ -> p
+    
     (* TODO *)
 end
