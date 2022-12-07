@@ -100,7 +100,7 @@ module Make (R: Reader) = struct
             | Some ')' -> advance p, Some (rpar @@ make_from p.offset @@ advance p)
             | Some _ -> lex_word_body p.offset p
     let la1 p =
-        let (p, t) = lex p in
+        let (_, t) = lex p in
         t
     let rec drop ?(n = 1) l =
         match n with
