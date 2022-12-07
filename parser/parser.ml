@@ -117,6 +117,8 @@ module Make (R: Reader) = struct
         match la1 p, v with
             (* reduce: empty *)
               _, Rpar r :: Lpar l :: _ -> reduce 2 (empty l r) p v
+            (* reduce: parenthesis *)
+            | _, Rpar r :: x :: Lpar l :: _ -> reduce 3 (parens l x r) p v
             (* TODO *)
             (* return *)
             | None, [x] -> x
