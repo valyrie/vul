@@ -7,6 +7,8 @@ module type Reader = sig
     val read_byte : t -> int -> char option
 end
 
+exception Parser_error
+
 module Make (R: Reader) = struct
     module Expr = struct
         [@@@ocaml.warning "-30"]
@@ -97,5 +99,28 @@ module Make (R: Reader) = struct
             | Some '(' -> advance p, Some (lpar @@ make_from p.offset @@ advance p)
             | Some ')' -> advance p, Some (rpar @@ make_from p.offset @@ advance p)
             | Some _ -> lex_word_body p.offset p
-    (* TODO *)
+    let la1 p =
+        let (p, t) = lex p in
+        t
+    let rec drop ?(n = 1) l =
+        match n with
+              0 -> l
+            | _ -> drop ~n:(n - 1) @@ List.tl l
+    let rec shift p l = 
+        let p, o = lex p in
+        match o with
+              None -> raise Parser_error
+            | Some t -> parse_step p @@ t :: l
+    and reduce n x p l =
+        parse_step p @@ x :: (drop ~n:n l)
+    and parse_step p v =
+        match la1 p, v with
+            (* reduce: empty *)
+              _, Rpar r :: Lpar l :: _ -> reduce 2 (empty l r) p v
+            (* TODO *)
+            (* return *)
+            | None, [x] -> x
+            (* shift *)
+            | _, _ -> shift p v
+    let parse r = parse_step (of_reader r) []
 end
