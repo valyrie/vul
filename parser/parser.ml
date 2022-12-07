@@ -39,24 +39,6 @@ module Make (R: Reader) = struct
             | Cons of cons
         [@@@ocaml.warning "+30"]
     end
-    let is_ws c =
-        c = ' ' || c = '\t' || c = '\r'
-    let is_break c =
-        is_ws c || c = '\n' || c = '(' || c = ')'
-    let is_digit c =
-        match c with
-            '0' | '1' | '2' | '3' | '4'
-            | '5' | '6' | '7' | '8' | '9' -> true
-            | _ -> false
-    let is_digit_or_spacer c =
-        match c with
-            '_' -> true
-            | _ -> is_digit c
-    let is_negative c =
-        c = '-'
-    let is_sign c =
-        match c with
-            '+' -> true
-            | _ -> is_negative c
+    type t = {pos: int; reader: R.t}
     (* TODO *)
 end
