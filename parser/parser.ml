@@ -100,6 +100,14 @@ module Make (R: Reader) = struct
             | Some '(' -> advance p, Some (lpar @@ make_from p.offset @@ advance p)
             | Some ')' -> advance p, Some (rpar @@ make_from p.offset @@ advance p)
             | Some _ -> lex_word_body p.offset p
+    let is_syntax (t: Expr.t) =
+        match t with
+              Lpar _ | Rpar _ -> true
+            | _ -> false
+    let is_cons_break (t: Expr.t option) =
+        match t with
+              None -> true
+            | Some x -> is_syntax x
     let la1 p =
         let (_, t) = lex p in
         t
@@ -120,7 +128,17 @@ module Make (R: Reader) = struct
               _, Rpar r :: Lpar l :: _ -> reduce 2 (empty l r) p v
             (* reduce: parenthesis *)
             | _, Rpar r :: x :: Lpar l :: _ -> reduce 3 (parens l x r) p v
-            (* TODO *)
+            (* reduce: cons *)
+            | la, b :: a :: _ when
+                   not @@ is_syntax a
+                && not @@ is_syntax b
+                && is_cons_break la ->
+                    reduce 2 (cons b @@ Some a) p v
+            (* reduce orphaned syntax *)
+            | None, x :: _ when is_syntax x ->
+                let err = orphaned x p.last_error in
+                let p = {p with last_error = Some err} in
+                reduce 1 (error err) p v
             (* return *)
             | None, [x] -> x, p.last_error
             (* shift *)
