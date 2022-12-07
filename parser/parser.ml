@@ -75,9 +75,8 @@ module Make (R: Reader) = struct
             | _ -> lex_malformed_body start p
     and lex_word_body_quoted_escape start p =
         match look_byte p with
-              Some '"' | Some '\\' | Some 'n' | Some 'r' | Some 't' | Some 's'
-            | Some 'b' | Some 'd' | Some 'f' | Some 'v' | Some 'a' | Some 'e' -> lex_word_body_quoted start @@ advance p
-            | Some '0' -> lex_word_body_quoted start @@ advance p
+              Some '"' | Some '\\' | Some 'n' | Some 'r' | Some 't' | Some 's' | Some ' '
+            | Some 'b' | Some 'd' | Some 'f' | Some 'v' | Some 'a' | Some 'e' | Some '0' -> lex_word_body_quoted start @@ advance p
             | Some 'x' -> lex_word_body_quoted_escape_hex start @@ advance p
             | Some _ | None -> lex_malformed_body start p
     and lex_word_body_quoted start p =
