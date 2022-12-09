@@ -6,34 +6,32 @@ module type Reader = sig
     val read_bytes : t -> int -> int -> bytes
     val read_byte : t -> int -> char option
 end
-
 exception Parser_error
-
+module Expr = struct
+    [@@@ocaml.warning "-30"]
+    type from = {text: bytes; start: int; stop: int; path: string}
+    type word = {from: from}
+    type lpar = {from: from}
+    type rpar = {from: from}
+    type empty = {left: lpar; right: rpar}
+    type orphaned = {expr: t; prev: error option}
+    and malformed = {from: from; prev: error option}
+    and error =
+          Orphaned of orphaned
+        | Malformed of malformed
+    and parens = {left: lpar; expr: t; right: rpar}
+    and cons = {left: t; right: t option}
+    and t =
+          Word of word
+        | Lpar of lpar
+        | Rpar of rpar
+        | Empty of empty
+        | Error of error
+        | Parens of parens
+        | Cons of cons
+    [@@@ocaml.warning "+30"]
+end
 module Make (R: Reader) = struct
-    module Expr = struct
-        [@@@ocaml.warning "-30"]
-        type from = {text: bytes; start: int; stop: int; path: string}
-        type word = {from: from}
-        type lpar = {from: from}
-        type rpar = {from: from}
-        type empty = {left: lpar; right: rpar}
-        type orphaned = {expr: t; prev: error option}
-        and malformed = {from: from; prev: error option}
-        and error =
-              Orphaned of orphaned
-            | Malformed of malformed
-        and parens = {left: lpar; expr: t; right: rpar}
-        and cons = {left: t; right: t option}
-        and t =
-              Word of word
-            | Lpar of lpar
-            | Rpar of rpar
-            | Empty of empty
-            | Error of error
-            | Parens of parens
-            | Cons of cons
-        [@@@ocaml.warning "+30"]
-    end
     let word f = Expr.Word {from = f}
     let lpar f = Expr.Lpar {from = f}
     let rpar f = Expr.Rpar {from = f}
@@ -47,8 +45,6 @@ module Make (R: Reader) = struct
     let of_reader r = {offset = 0; reader = r; last_error = None}
     let advance ?(ahead = 1) p = {p with offset = p.offset + ahead}
     let look_byte ?(ahead = 0) p = R.read_byte p.reader (p.offset + ahead)
-    let look_bytes ?(ahead = 0) p n = R.read_bytes p.reader (p.offset + ahead) n
-    let at_eof p = Option.is_none @@ look_byte p
     let make_from start p: Expr.from = {text = R.read_bytes p.reader start p.offset; start = start; stop = p.offset; path = R.path_of p.reader}
     let is_ws c =
         c = ' ' || c = '\t' || c = '\n' || c = '\r'
@@ -85,7 +81,7 @@ module Make (R: Reader) = struct
     and lex_word_body_quoted start p =
         match look_byte p with
               Some '"' -> lex_word_body start @@ advance p
-            | Some '\\' -> lex_word_body_quoted start @@ advance ~ahead:2 p
+            | Some '\\' -> lex_word_body_quoted_escape start @@ advance p
             | Some _ -> lex_word_body_quoted start @@ advance p
             | None -> lex_malformed_body start p
     and lex_word_body start p =
