@@ -1,13 +1,11 @@
-module type Reader =
-    sig
-      type t
-      val path_of : t -> string
-      val read_bytes : t -> int -> int -> bytes
-      val read_byte : t -> int -> char option
+module type Reader = sig
+    type t
+    val path_of : t -> string
+    val read_bytes : t -> int -> int -> bytes
+    val read_byte : t -> int -> char option
 end
 exception Parser_error
-module Expr :
-sig
+module Expr : sig
     [@@@ocaml.warning "-30"]
     type from = { text : bytes; start : int; stop : int; path : string; }
     type word = { from : from; }
@@ -30,7 +28,6 @@ sig
     [@@@ocaml.warning "+30"]
 end
 module Make :
-    functor (R : Reader) ->
-        sig
-            val parse : R.t -> Expr.t * Expr.error option
+    functor (R : Reader) -> sig
+        val parse : R.t -> Expr.t * Expr.error option
     end
