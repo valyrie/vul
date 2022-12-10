@@ -1,4 +1,4 @@
-module type Reader = sig
+module type Source = sig
     type t
     val path_of : t -> string
     val read_bytes : t -> int -> int -> bytes
@@ -28,6 +28,6 @@ module Expr : sig
     [@@@ocaml.warning "+30"]
 end
 module Make :
-    functor (R : Reader) -> sig
-        val parse : R.t -> Expr.t * Expr.error option
+    functor (S : Source) -> sig
+        val parse : S.t -> Expr.t * Expr.error option
     end
