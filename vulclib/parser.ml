@@ -103,7 +103,8 @@ module Make (S: Source) = struct
     let is_cons_break (t: Expr.t option) =
         match t with
               None -> true
-            | Some x -> is_syntax x
+            | Some (Rpar _) -> true
+            | _ -> false
     let la1 p =
         let (_, t) = lex p in
         t
@@ -125,6 +126,7 @@ module Make (S: Source) = struct
             (* reduce: parenthesis *)
             | _, Rpar r :: x :: Lpar l :: _ -> reduce 3 (parens l x r) p v
             (* reduce: cons *)
+            (* TODO: cons reduction is busted and WILL misbehave -- builds malformed lists *)
             | la, b :: a :: _ when
                    not @@ is_syntax a
                 && not @@ is_syntax b
