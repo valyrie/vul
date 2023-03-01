@@ -20,7 +20,7 @@ module Expr = struct
           Orphaned of orphaned
         | Malformed of malformed
     and parens = {left: lpar; expr: t; right: rpar}
-    and cons = {left: t; right: t option}
+    and cons = {left: t; right: cons option}
     and t =
           Word of word
         | Lpar of lpar
@@ -130,9 +130,8 @@ module Make (S: Source) = struct
             (* reduce: parenthesis *)
             | _, Rpar r :: x :: Lpar l :: _ -> reduce 3 (parens l x r) p v
             (* reduce: cons *)
-            | la, hd :: pv :: _ when
-                   is_cons hd
-                && not @@ is_syntax pv
+            | la, Cons hd :: pv :: _ when
+                   not @@ is_syntax pv
                 && is_cons_break la ->
                     reduce 2 (cons pv @@ Some hd) p v
             | la, hd :: pv :: _ when

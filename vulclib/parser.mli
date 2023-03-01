@@ -16,7 +16,7 @@ module Expr : sig
     and malformed = { from : from; prev : error option; }
     and error = Orphaned of orphaned | Malformed of malformed
     and parens = { left : lpar; expr : t; right : rpar; }
-    and cons = { left : t; right : t option; }
+    and cons = { left : t; right : cons option; }
     and t =
           Word of word
         | Lpar of lpar
