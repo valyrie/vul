@@ -7,6 +7,7 @@ module type Source = sig
     val read_byte : t -> int -> char option
 end
 exception Parser_error
+exception Empty_source of string
 module Expr = struct
     [@@@ocaml.warning "-30"]
     type from = {text: bytes; start: int; stop: int; path: string}
@@ -148,6 +149,7 @@ module Make (S: Source) = struct
                 reduce 1 (error err) p v
             (* return *)
             | None, [x] -> x, p.last_error
+            | None, [] -> raise (Empty_source (S.path_of p.source))
             (* shift *)
             | _, _ -> shift p v
     let parse r = parse_step (of_source r) []

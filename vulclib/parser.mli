@@ -5,6 +5,7 @@ module type Source = sig
     val read_byte : t -> int -> char option
 end
 exception Parser_error
+exception Empty_source
 module Expr : sig
     [@@@ocaml.warning "-30"]
     type from = { text : bytes; start : int; stop : int; path : string; }
