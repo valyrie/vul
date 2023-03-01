@@ -42,8 +42,8 @@ module Make (S: Source) = struct
     let error e = Expr.Error e
     let parens l x r = Expr.Parens {left = l; expr = x; right = r}
     let cons l r = Expr.Cons {left = l; right = r}
-    type t = {offset: int; source: S.t; last_error: Expr.error option}
-    let of_source r = {offset = 0; source = r; last_error = None}
+    type t = {offset: int; source: S.t; last_error: Expr.error option; v: Expr.t list}
+    let of_source r = {offset = 0; source = r; last_error = None; v = []}
     let advance ?(ahead = 1) p = {p with offset = p.offset + ahead}
     let look_byte ?(ahead = 0) p = S.read_byte p.source (p.offset + ahead)
     let make_from start p: Expr.from = {text = S.read_bytes p.source start p.offset; start = start; stop = p.offset; path = S.path_of p.source}
@@ -114,43 +114,45 @@ module Make (S: Source) = struct
     let la1 p =
         let (_, t) = lex p in
         t
-    let rec drop ?(n = 1) l =
+    let push x p =
+        {p with v = x :: p.v}
+    let rec drop ?(n = 1) p =
         match n with
-              0 -> l
-            | _ -> drop ~n:(n - 1) @@ List.tl l
-    let rec shift p l = 
+              0 -> p
+            | _ -> drop ~n:(n - 1) @@ {p with v = List.tl p.v}
+    let rec shift p = 
         let p, o = lex p in
         match o with
               None -> raise Parser_error
-            | Some t -> parse_step p @@ t :: l
-    and reduce n x p l =
-        parse_step p @@ x :: (drop ~n:n l)
-    and parse_step p v =
-        match la1 p, v with
+            | Some t -> parse_step {p with v = t :: p.v}
+    and reduce n x p =
+        parse_step (push x @@ drop ~n:n p)
+    and parse_step p =
+        match la1 p, p.v with
             (* reduce: empty *)
-              _, Rpar r :: Lpar l :: _ -> reduce 2 (empty l r) p v
+              _, Rpar r :: Lpar l :: _ -> reduce 2 (empty l r) p
             (* reduce: parenthesis *)
-            | _, Rpar r :: x :: Lpar l :: _ -> reduce 3 (parens l x r) p v
+            | _, Rpar r :: x :: Lpar l :: _ -> reduce 3 (parens l x r) p
             (* reduce: cons *)
             | la, Cons hd :: pv :: _ when
                    not @@ is_syntax pv
                 && is_cons_break la ->
-                    reduce 2 (cons pv @@ Some hd) p v
+                    reduce 2 (cons pv @@ Some hd) p
             | la, hd :: pv :: _ when
                    not @@ is_cons hd
                 && not @@ is_syntax hd
                 && not @@ is_syntax pv
                 && is_cons_break la ->
-                    reduce 1 (cons hd @@ None) p v
+                    reduce 1 (cons hd @@ None) p
             (* reduce orphaned syntax *)
             | None, x :: _ when is_syntax x ->
                 let err = orphaned x p.last_error in
                 let p = {p with last_error = Some err} in
-                reduce 1 (error err) p v
+                reduce 1 (error err) p
             (* return *)
             | None, [x] -> x, p.last_error
             | None, [] -> raise (Empty_source (S.path_of p.source))
             (* shift *)
-            | _, _ -> shift p v
-    let parse r = parse_step (of_source r) []
+            | _, _ -> shift p
+    let parse r = parse_step (of_source r)
 end
