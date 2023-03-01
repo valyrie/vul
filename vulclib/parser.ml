@@ -49,7 +49,7 @@ module Make (S: Source) = struct
     let is_ws c =
         c = ' ' || c = '\t' || c = '\n' || c = '\r'
     let is_word_break c =
-        is_ws c || c = '(' || c = ')'
+        is_ws c || c = '(' || c = ')' || c = ';'
     let is_oct_digit c =
         c = '0' || c = '1' || c = '2' || c = '3' || c = '4'
         || c = '5' || c = '6' || c = '7'
@@ -58,6 +58,10 @@ module Make (S: Source) = struct
     let is_hex_digit c =
         is_digit c || c = 'a' || c = 'A' || c = 'b' || c = 'B' || c = 'c' || c = 'C'
         || c = 'd' || c = 'D' || c = 'e' || c = 'E' || c = 'f' || c = 'F'
+    let rec skip_line p =
+        match look_byte p with
+              None | Some '\n' -> advance p
+            | _ -> skip_line @@ advance p
     let rec lex_malformed_body start p =
         match look_byte p with
               Some c when is_word_break c -> lex_malformed_body start @@ advance p
@@ -88,7 +92,8 @@ module Make (S: Source) = struct
     let rec lex p =
         match look_byte p with
               None -> p, None
-            | Some c when is_ws c -> lex @@ advance p
+            | Some c when is_ws c -> lex @@ advance p (* skip leading whitespace *)
+            | Some ';' -> lex @@ skip_line @@ advance p (* skip single-line comments *)
             | Some '(' -> advance p, Some (lpar @@ make_from p.offset @@ advance p)
             | Some ')' -> advance p, Some (rpar @@ make_from p.offset @@ advance p)
             | Some _ -> lex_word_body p.offset p
