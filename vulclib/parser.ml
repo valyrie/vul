@@ -58,10 +58,6 @@ module Make (S: Source) = struct
     let is_hex_digit c =
         is_digit c || c = 'a' || c = 'A' || c = 'b' || c = 'B' || c = 'c' || c = 'C'
         || c = 'd' || c = 'D' || c = 'e' || c = 'E' || c = 'f' || c = 'F'
-    let rec skip_ws p =
-        match look_byte p with
-              Some c when is_ws c -> skip_ws @@ advance p
-            | _ -> p
     let rec lex_malformed_body start p =
         match look_byte p with
               Some c when is_word_break c -> lex_malformed_body start @@ advance p
@@ -89,10 +85,10 @@ module Make (S: Source) = struct
               Some '"' -> lex_word_body_quoted start @@ advance p
             | Some c when not @@ is_word_break c -> lex_word_body start @@ advance p
             | _ -> p, Some (word @@ make_from start p)
-    let lex p =
-        let p = skip_ws p in
+    let rec lex p =
         match look_byte p with
               None -> p, None
+            | Some c when is_ws c -> lex @@ advance p
             | Some '(' -> advance p, Some (lpar @@ make_from p.offset @@ advance p)
             | Some ')' -> advance p, Some (rpar @@ make_from p.offset @@ advance p)
             | Some _ -> lex_word_body p.offset p
