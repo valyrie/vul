@@ -50,7 +50,7 @@ module Make (S: Source) = struct
     let is_ws c =
         c = ' ' || c = '\t' || c = '\n' || c = '\r'
     let is_word_break c =
-        is_ws c || c = '(' || c = ')' || c = ';'
+        is_ws c || c = '(' || c = ')' || c = '#'
     let is_oct_digit c =
         c = '0' || c = '1' || c = '2' || c = '3' || c = '4'
         || c = '5' || c = '6' || c = '7'
