@@ -32,7 +32,6 @@ module Expr = struct
     [@@@ocaml.warning "+30"]
 end
 module Make (S: Source) = struct
-    exception Empty_source of S.t
     let word f = Expr.Word {from = f}
     let lpar f = Expr.Lpar {from = f}
     let rpar f = Expr.Rpar {from = f}
@@ -150,8 +149,8 @@ module Make (S: Source) = struct
                 let p = {p with last_error = Some err} in
                 reduce 1 (error err) p
             (* return *)
-            | None, [x] -> x, p.last_error
-            | None, [] -> raise (Empty_source p.source)
+            | None, [x] -> Some x, p.last_error
+            | None, [] -> None, p.last_error
             (* shift *)
             | _, _ -> shift p
     let parse r = parse_step (of_source r)

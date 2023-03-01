@@ -29,6 +29,5 @@ module Expr : sig
 end
 module Make :
     functor (S : Source) -> sig
-        exception Empty_source of S.t 
-        val parse : S.t -> Expr.t * Expr.error option
+        val parse : S.t -> Expr.t option * Expr.error option
     end
