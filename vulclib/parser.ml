@@ -93,7 +93,7 @@ module Make (S: Source) = struct
         match look_byte p with
               None -> p, None
             | Some c when is_ws c -> lex @@ advance p (* skip leading whitespace *)
-            | Some ';' -> lex @@ skip_line @@ advance p (* skip single-line comments *)
+            | Some '#' -> lex @@ skip_line @@ advance p (* skip single-line comments *)
             | Some '(' -> advance p, Some (lpar @@ make_from p.offset @@ advance p)
             | Some ')' -> advance p, Some (rpar @@ make_from p.offset @@ advance p)
             | Some _ -> lex_word_body p.offset p
