@@ -5,7 +5,6 @@ module type Source = sig
     val read_byte : t -> int -> char option
 end
 exception Parser_error
-exception Empty_source of string
 module Expr : sig
     [@@@ocaml.warning "-30"]
     type from = { text : bytes; start : int; stop : int; path : string; }
@@ -19,16 +18,17 @@ module Expr : sig
     and parens = { left : lpar; expr : t; right : rpar; }
     and cons = { left : t; right : cons option; }
     and t =
-          Word of word
-        | Lpar of lpar
-        | Rpar of rpar
-        | Empty of empty
-        | Error of error
-        | Parens of parens
-        | Cons of cons
+    Word of word
+    | Lpar of lpar
+    | Rpar of rpar
+    | Empty of empty
+    | Error of error
+    | Parens of parens
+    | Cons of cons
     [@@@ocaml.warning "+30"]
 end
 module Make :
     functor (S : Source) -> sig
+        exception Empty_source of S.t 
         val parse : S.t -> Expr.t * Expr.error option
     end
