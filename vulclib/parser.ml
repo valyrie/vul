@@ -16,9 +16,11 @@ module Expr = struct
     type empty = {left: lpar; right: rpar}
     type orphaned = {expr: t; prev: error option}
     and malformed = {from: from; prev: error option}
+    and unclosed_comment = {from: from; prev: error option}
     and error =
           Orphaned of orphaned
         | Malformed of malformed
+        | Unclosed_comment of unclosed_comment
     and parens = {left: lpar; expr: t; right: rpar}
     and cons = {left: t; right: cons option}
     and t =
@@ -38,6 +40,7 @@ module Make (S: Source) = struct
     let empty l r = Expr.Empty {left = l; right = r}
     let orphaned x p = Expr.Orphaned {expr = x; prev = p}
     let malformed f p = Expr.Malformed {from = f; prev = p}
+    let unclosed_comment f p = Expr.Unclosed_comment {from = f; prev = p}
     let error e = Expr.Error e
     let parens l x r = Expr.Parens {left = l; expr = x; right = r}
     let cons l r = Expr.Cons {left = l; right = r}
@@ -89,12 +92,40 @@ module Make (S: Source) = struct
               Some '"' -> lex_word_body_quoted start @@ advance p
             | Some c when not @@ is_word_break c -> lex_word_body start @@ advance p
             | _ -> p, Some (word @@ make_from start p)
-    let rec lex p =
+    let rec lex_blockcom_hash_body start depth p =
+        match look_byte p with
+              Some ')' ->
+                let depth = depth - 1 in
+                if depth > 0 then
+                    lex_blockcom_body start depth @@ advance p
+                else
+                    lex @@ advance p
+            | Some _ -> lex_blockcom_body start depth p
+            | None -> let err = unclosed_comment (make_from start p) p.last_error in
+                {p with last_error = Some err}, Some (error @@ err)
+    and lex_blockcom_lparen_body start depth p =
+        match look_byte p with
+              Some '#' -> lex_blockcom_body start (depth + 1) @@ advance p
+            | Some _ -> lex_blockcom_body start depth p
+            | None -> let err = unclosed_comment (make_from start p) p.last_error in
+                {p with last_error = Some err}, Some (error @@ err)
+    and lex_blockcom_body start depth p =
+        match look_byte p with
+              Some '(' -> lex_blockcom_lparen_body start depth @@ advance p
+            | Some '#' -> lex_blockcom_hash_body start depth @@ advance p
+            | Some _ -> lex_blockcom_body start depth @@ advance p
+            | None -> let err = unclosed_comment (make_from start p) p.last_error in
+                {p with last_error = Some err}, Some (error @@ err)
+    and lex_lparen_body start p =
+        match look_byte p with
+              Some '#' -> lex_blockcom_body start 1 @@ advance p
+            | _ -> p, Some (lpar @@ make_from start p)
+    and lex p =
         match look_byte p with
               None -> p, None
             | Some c when is_ws c -> lex @@ advance p (* skip leading whitespace *)
             | Some '#' -> lex @@ skip_line @@ advance p (* skip single-line comments *)
-            | Some '(' -> advance p, Some (lpar @@ make_from p.offset @@ advance p)
+            | Some '(' -> lex_lparen_body p.offset @@ advance p
             | Some ')' -> advance p, Some (rpar @@ make_from p.offset @@ advance p)
             | Some _ -> lex_word_body p.offset p
     let is_syntax (t: Expr.t) =

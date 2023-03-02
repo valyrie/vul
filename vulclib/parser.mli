@@ -14,7 +14,11 @@ module Expr : sig
     type empty = { left : lpar; right : rpar; }
     type orphaned = { expr : t; prev : error option; }
     and malformed = { from : from; prev : error option; }
-    and error = Orphaned of orphaned | Malformed of malformed
+    and unclosed_comment = { from : from; prev : error option; }
+    and error =
+    Orphaned of orphaned
+    | Malformed of malformed
+    | Unclosed_comment of unclosed_comment
     and parens = { left : lpar; expr : t; right : rpar; }
     and cons = { left : t; right : cons option; }
     and t =
